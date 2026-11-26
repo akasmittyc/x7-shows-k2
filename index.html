@@ -153,9 +153,9 @@ async function connect(){try{set({pending:true,auth:'Contacting Trakt...'});cons
 const showId=t=>IDS[t]||(added().find(a=>a.title===t)||{}).id;
 async function loadDetail(t){const id=showId(t),tk=tok();if(!tk||!id)return;S.det[t]={loading:true};
  try{const H={'trakt-api-version':'2','trakt-api-key':KEY,Authorization:'Bearer '+tk};
-  const [sr,pr]=await Promise.all([fetch('https://api.trakt.tv/shows/'+id+'/seasons?extended=episodes,full',{headers:H}),fetch('https://api.trakt.tv/shows/'+id+'/progress/watched',{headers:H})]);
+  const [sr,pr]=await Promise.all([fetch('https://api.trakt.tv/shows/'+id+'/seasons?extended=episodes,full',{headers:{'trakt-api-version':'2','trakt-api-key':KEY}}),fetch('https://api.trakt.tv/shows/'+id+'/progress/watched',{headers:H})]);
   if(pr.status===401){ls.del('traktTok');throw new Error('Trakt login expired. Reconnect with the + button.')}
-  if(!sr.ok||!pr.ok)throw new Error('Trakt returned HTTP '+(sr.ok?pr.status:sr.status));
+  if(!sr.ok||!pr.ok)throw new Error((sr.ok?'Trakt progress check':'Trakt episode list')+' returned HTTP '+(sr.ok?pr.status:sr.status));
   const seasons=await sr.json(),pg=await pr.json();const done=new Set();
   (pg.seasons||[]).forEach(sn=>(sn.episodes||[]).forEach(e=>{if(e.completed)done.add(sn.number+'x'+e.number)}));
   const now=Date.now(),unw=[];
