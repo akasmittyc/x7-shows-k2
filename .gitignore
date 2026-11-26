@@ -1,0 +1,15 @@
+# macOS / editors
+.DS_Store
+.vscode/
+.idea/
+*.swp
+
+# logs and dependencies
+*.log
+node_modules/
+
+# secrets
+.env
+.env.*
+*.pem
+*.key
