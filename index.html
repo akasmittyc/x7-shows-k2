@@ -70,6 +70,7 @@ const BASE=[
       ['Carrie', 0, null, 'ret'],
       ['Little House on the Prairie', 0, null, 'ret'],
 ];
+const IDS={"Survivor":14594,"Tulsa King":191758,"Dexter: Resurrection":249647,"Below Deck":49722,"Best Medicine":285217,"The Traitors":200623,"Ginny & Georgia":170997,"Below Deck Mediterranean":104605,"MobLand":228595,"For All Mankind":140481,"Elle":239856,"The Pitt":232884,"Squid Game: The Challenge":196265,"Pluribus":206790,"Landman":174314,"Fear Factor: House of Fear":293272,"Lanterns":157599,"The Ultimatum: Marry or Move On":193835,"Brothers":232728,"Ted Lasso":162639,"Crystal Lake":199470,"The Audacity":246726,"BEEF":197667,"Outlast: The Jungle":320253,"The Gentlemen":211407,"House of the Dragon":154574,"The Four Seasons":220439,"Widow's Bay":254678,"Dutton Ranch":296208,"Worst Neighbor Ever":320339,"Your Friends & Neighbors":217691,"Love on the Spectrum":195027,"Below Deck Down Under":180453,"Pinkfong Little Dino School":262266,"Ms. Rachel":273734,"Murder in a Small Town":217672,"The Hawk":240024,"Sugar":196180,"Carrie":282156,"Little House on the Prairie":275053};
 const TZ='America/New_York';
 const ymd=new Intl.DateTimeFormat('en-CA',{timeZone:TZ,year:'numeric',month:'2-digit',day:'2-digit'});
 const md=new Intl.DateTimeFormat('en-US',{timeZone:TZ,month:'short',day:'numeric'});
@@ -81,6 +82,7 @@ const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;'
 const hue=t=>{let h=0;for(let i=0;i<t.length;i++)h=(h*31+t.charCodeAt(i))%360;return h};
 const pad=n=>n<10?'0'+n:''+n;
 const ls={get:k=>{try{return localStorage.getItem(k)}catch(e){return null}},set:(k,v)=>{try{localStorage.setItem(k,v)}catch(e){}},del:k=>{try{localStorage.removeItem(k)}catch(e){}}};
+const prog=()=>{try{return JSON.parse(ls.get('prog')||'{}')}catch(e){return{}}};
 let S={view:'list',sel:null,results:[],msg:'Search Trakt by show title or actor name.',auth:'',pending:false,adding:null};
 const added=()=>{try{return JSON.parse(ls.get('addedShows')||'[]')}catch(e){return[]}};
 const saveAdded=l=>ls.set('addedShows',JSON.stringify(l));
@@ -89,7 +91,10 @@ async function tj(p){const r=await fetch('https://api.trakt.tv'+p,{headers:{'tra
 async function tpost(p,b,t){const h={'Content-Type':'application/json','trakt-api-version':'2','trakt-api-key':KEY};if(t)h.Authorization='Bearer '+t;const r=await fetch('https://api.trakt.tv'+p,{method:'POST',headers:h,body:JSON.stringify(b)});let j=null;try{j=await r.json()}catch(e){}return{status:r.status,body:j}}
 const set=o=>{Object.assign(S,o);render();};
 function allShows(){const a=added();const eps=Object.assign({},UP);a.forEach(x=>eps[x.title]=x.eps);
- const list=BASE.concat(a.map(x=>[x.title,x.unw,x.eps.length&&x.eps[0].a?x.eps[0].a:null,x.status==='ended'||x.status==='canceled'?'end':'ret']));return{list,eps,a}}
+ const P=prog();const now=Date.now();
+ const nextAir=(t,fb)=>{const l=eps[t];if(!l)return fb;const f=l.find(x=>x.a&&new Date(x.a).getTime()>now);return f?f.a:(l.some(x=>!x.a)?null:fb)};
+ const base=BASE.map(b=>[b[0],P[b[0]]!=null?P[b[0]]:b[1],nextAir(b[0],b[2]),b[3]]);
+ const list=base.concat(a.map(x=>[x.title,P[x.title]!=null?P[x.title]:x.unw,nextAir(x.title,x.eps.length&&x.eps[0].a?x.eps[0].a:null),x.status==='ended'||x.status==='canceled'?'end':'ret']));return{list,eps,a}}
 function rowsHtml(list){const today=dayNum(new Date());
  const rows=list.map(s=>{const title=s[0],unw=s[1],air=s[2],st=s[3];let label=st==='end'?'ENDED':'TBA',sort=st==='end'?2e15:1e15,big=false;
   if(air){const d=new Date(air),diff=dayNum(d)-today;sort=d.getTime();label=diff<0?'AIRED':diff===0?'TODAY':diff===1?'TOMORROW':diff<=30?diff+' DAYS':md.format(d).toUpperCase();big=diff<=30}
@@ -101,7 +106,7 @@ function rel(d,dateOnly){const today=dayNum(new Date());const diff=dateOnly?Math
 const hdr=(inner)=>`<header class="w" style="display:block;padding:20px 20px 22px"><button class="back" data-act="back">&#8592; Shows</button>${inner}</header>`;
 function render(){const A=allShows();let h='';
  if(S.view==='list'){const r=rowsHtml(A.list);
-  h=`<header class="w"><div style="display:flex;align-items:center;gap:12px"><span style="width:10px;height:10px;border-radius:50%;background:#fff"></span><h1 style="font-size:34px;letter-spacing:.02em">Shows</h1></div><div style="display:flex;align-items:center;gap:10px"><button class="plus" data-act="search" aria-label="Add a show">+</button><div class="pill">${r.n}</div></div></header><main class="w">${r.html}</main><footer class="w sys note">The number on the right is how many aired episodes you haven't watched. Shows that have ended or been canceled appear only while you still have unwatched episodes. Shows you add with + count every aired episode as unwatched (this page can't see your Trakt history) and are saved in this browser; connect Trakt on the Add screen to also add them to your Trakt watchlist. Tap a show to see its upcoming episodes. Countdowns and air times use Eastern time.</footer>`}
+  h=`<header class="w"><div style="display:flex;align-items:center;gap:12px"><span style="width:10px;height:10px;border-radius:50%;background:#fff"></span><h1 style="font-size:34px;letter-spacing:.02em">Shows</h1></div><div style="display:flex;align-items:center;gap:10px"><button class="plus" data-act="search" aria-label="Add a show">+</button><div class="pill">${r.n}</div></div></header><main class="w">${r.html}</main><footer class="w sys note">The number on the right is how many aired episodes you haven't watched. Shows that have ended or been canceled appear only while you still have unwatched episodes. Shows you add with + count every aired episode as unwatched (this page can't see your Trakt history) and are saved in this browser; connect Trakt on the Add screen to also add them to your Trakt watchlist. Tap a show to see its upcoming episodes. Countdowns and air times use Eastern time.${S.synced?' Unwatched counts last synced from Trakt '+tm.format(S.synced)+' ET'+(S.syncFail?' ('+S.syncFail+' shows could not be checked)':'')+'.':(tok()?' Syncing unwatched counts from Trakt...':' Connect Trakt (+ button) to sync unwatched counts.')}</footer>`}
  else if(S.view==='detail'){const list=A.eps[S.sel]||[];const isAdded=A.a.some(x=>x.title===S.sel);
   const eps=list.map(x=>{let date='Date TBA',rl='';if(x.a){const d=new Date(x.a),dO=x.a.indexOf('T00:00:00')>-1;date=dO?wkU.format(d):wk.format(d)+' \u00b7 '+tm.format(d)+' ET';rl=rel(d,dO)}
    return `<article class="ep"><div style="display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:6px 16px"><div style="font-size:34px;line-height:1">S${pad(x.s)}E${pad(x.e)}<span style="color:#bdbdbd"> &middot; ${esc(x.t?x.t.toUpperCase():'TITLE TBA')}</span></div><div style="font-size:26px;line-height:1">${esc(date)}</div></div><div style="margin-top:6px;font-size:20px;line-height:1;color:#8a8a8a">${rl}</div><p class="sys" style="margin:12px 0 0;font-size:15px;line-height:1.5;color:${x.o?'#cfcfcf':'#6f6f6f'}">${esc(x.o||'Description not available yet.')}</p></article>`}).join('');
@@ -136,6 +141,16 @@ async function connect(){try{set({pending:true,auth:'Contacting Trakt...'});cons
    if(t.status===200&&t.body&&t.body.access_token){ls.set('traktTok',t.body.access_token);set({pending:false,auth:''});return}
    if(t.status===400||t.status===429)continue;throw new Error('sign-in HTTP '+t.status)}
   throw new Error('code expired')}catch(e){set({pending:false,auth:'Could not connect to Trakt ('+(e.message||'error')+').'})}}
+let refreshing=false;
+async function refreshProgress(){const t=tok();if(!t||refreshing)return;refreshing=true;
+ const A=allShows();const items=A.list.map(x=>x[0]).map(n=>({n,id:IDS[n]||(A.a.find(a=>a.title===n)||{}).id})).filter(x=>x.id);
+ const P=prog();let i=0,fail=0;
+ async function w(){while(i<items.length){const it=items[i++];
+  try{const r=await fetch('https://api.trakt.tv/shows/'+it.id+'/progress/watched',{headers:{'trakt-api-version':'2','trakt-api-key':KEY,Authorization:'Bearer '+t}});
+   if(r.status===401){ls.del('traktTok');i=items.length;return}
+   if(!r.ok){fail++;continue}const j=await r.json();P[it.n]=Math.max(0,(j.aired||0)-(j.completed||0))}catch(e){fail++}}}
+ await Promise.all([w(),w(),w(),w(),w(),w()]);
+ ls.set('prog',JSON.stringify(P));refreshing=false;S.synced=new Date();S.syncFail=fail;if(S.view==='list')render()}
 document.addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;
  if(b.dataset.open){set({view:'detail',sel:b.dataset.open});scrollTo(0,0)}
  else if(b.dataset.add!=null){addShow(S.results[+b.dataset.add])}
@@ -146,4 +161,6 @@ document.addEventListener('click',e=>{const b=e.target.closest('button');if(!b)r
  else if(b.dataset.act==='disconnect'){ls.del('traktTok');set({auth:''})}});
 document.addEventListener('submit',e=>{if(e.target.id!=='sf')return;e.preventDefault();const q=e.target.elements.q.value.trim();if(!q)return;set({msg:'Searching...',results:[]});runSearch(q)});
 render();
+refreshProgress();
+document.addEventListener('visibilitychange',()=>{if(!document.hidden)refreshProgress()});
 </script></body></html>
