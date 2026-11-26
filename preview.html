@@ -118,7 +118,7 @@ function movieRowsHtml(){const BD=bdMap();
   return{m,label,sort,big}});
  rows.sort((a,b)=>(a.sort-b.sort)||(a.m.title<b.m.title?-1:1));
  return{n:rows.length,html:rows.map(r=>{const h=hue(r.m.title);const g=`linear-gradient(135deg,hsl(${h} 38% 27%),hsl(${h} 40% 8%))`;const bd=BD['m'+r.m.id];const bg=bd?`url(${bd}) center 30%/cover no-repeat,${g}`:g;
-  return `<button class="row" data-mopen="${r.m.id}" aria-label="${esc(r.m.title+', '+r.label.toLowerCase())}" style="height:${r.big?160:108}px;background:${bg}"><div class="ov"></div>${provIcons('m'+r.m.id,4)}<div class="tx"><div style="font-size:${r.big?50:34}px;line-height:.95">${esc(r.m.title.toUpperCase())}</div><div style="font-size:${r.big?42:28}px;line-height:1;color:#bdbdbd">${esc(r.label)}${r.m.year?' <span style="color:#fff">· '+r.m.year+'</span>':''}</div></div></button>`}).join('')}}
+  return `<button class="row" data-mopen="${r.m.id}" aria-label="${esc(r.m.title+', '+r.label.toLowerCase())}" style="height:${r.big?160:108}px;background:${bg}"><div class="ov"></div><div class="tx"><div style="font-size:${r.big?50:34}px;line-height:.95">${esc(r.m.title.toUpperCase())}</div><div style="font-size:${r.big?42:28}px;line-height:1;color:#bdbdbd">${esc(r.label)}${r.m.year?' <span style="color:#fff">· '+r.m.year+'</span>':''}${provIcons('m'+r.m.id,24)}</div></div></button>`}).join('')}}
 function allShows0(){const a=added();const eps=Object.assign({},UP);a.forEach(x=>eps[x.title]=x.eps);
  const P=prog();const now=Date.now();const L=liveC();
  if(L&&L.shows&&L.shows.length){const list=L.shows.map(x=>[x.title,x.unw,x.next||null,x.status==='ended'||x.status==='canceled'?'end':'ret',x.imdb||'',x.id,x.tmdb||0]);
@@ -153,7 +153,7 @@ function rowsHtml(list){const today=dayNum(new Date());
  rows.sort((a,b)=>(a.sort-b.sort)||(b.unw-a.unw)||(a.title<b.title?-1:1));
  const AR=artMap(),BD=bdMap();
  return{n:rows.length,html:rows.map(r=>{const h=hue(r.title);const g=`linear-gradient(135deg,hsl(${h} 38% 27%),hsl(${h} 40% 8%))`;const im=AR[r.key];const bd=BD[r.key];const bg=bd?`url(${bd}) center 30%/cover no-repeat,${g}`:g;const pw=(im&&!bd)?Math.round((r.big?160:108)*0.7):0;
-  return `<button class="row" data-open="${esc(r.title)}" aria-label="${esc(r.title+', '+r.label.toLowerCase())}" style="height:${r.big?160:108}px;background:${bg}">${(im&&!bd)?`<div aria-hidden="true" style="position:absolute;inset:-20px;background:url(${im}) center/cover;filter:blur(22px) brightness(.6);transform:scale(1.1)"></div>`:''}<div class="ov"></div>${provIcons(r.key,4)}${(im&&!bd)?`<img src="${im}" alt="" loading="lazy" style="position:absolute;right:0;top:0;height:100%;width:${pw}px;object-fit:cover;object-position:center top">`:''}${r.unw>0?`<div class="bd" style="right:${pw+20}px;font-size:${r.big?38:30}px">${r.unw}</div>`:''}<div class="tx" style="right:${pw+24}px"><div style="font-size:${r.big?50:34}px;line-height:.95">${esc(r.label)}</div><div style="font-size:${r.big?42:28}px;line-height:1;color:#bdbdbd">${esc(r.title.toUpperCase())}</div></div></button>`}).join('')}}
+  return `<button class="row" data-open="${esc(r.title)}" aria-label="${esc(r.title+', '+r.label.toLowerCase())}" style="height:${r.big?160:108}px;background:${bg}">${(im&&!bd)?`<div aria-hidden="true" style="position:absolute;inset:-20px;background:url(${im}) center/cover;filter:blur(22px) brightness(.6);transform:scale(1.1)"></div>`:''}<div class="ov"></div>${(im&&!bd)?`<img src="${im}" alt="" loading="lazy" style="position:absolute;right:0;top:0;height:100%;width:${pw}px;object-fit:cover;object-position:center top">`:''}${r.unw>0?`<div class="bd" style="right:${pw+20}px;font-size:${r.big?38:30}px">${r.unw}</div>`:''}<div class="tx" style="right:${pw+24}px"><div style="font-size:${r.big?50:34}px;line-height:.95">${esc(r.label)}${provIcons(r.key,28)}</div><div style="font-size:${r.big?42:28}px;line-height:1;color:#bdbdbd">${esc(r.title.toUpperCase())}</div></div></button>`}).join('')}}
 function rel(d,dateOnly){const today=dayNum(new Date());const diff=dateOnly?Math.round(Date.UTC(d.getUTCFullYear(),d.getUTCMonth(),d.getUTCDate())/864e5-today):dayNum(d)-today;return diff===0?'TODAY':diff===1?'TOMORROW':diff<0?'AIRED':'IN '+diff+' DAYS'}
 const hdr=(inner)=>`<header class="w" style="display:block;padding:20px 20px 22px"><button class="back" data-act="back">&#8592; Shows</button>${inner}</header>`;
 function render(){const A=allShows();let h='';
@@ -286,12 +286,12 @@ async function loadProviders(){const tk=tmdbTok();if(!tk||provBusy)return;provBu
   if(n&&S.view!=='search')render()}catch(e){}
  provBusy=false}
 const pimg=(p,z)=>p[1]?`<img src="https://image.tmdb.org/t/p/w92${p[1]}" alt="${esc(p[0])}" title="${esc(p[0])}" style="width:${z}px;height:${z}px;border-radius:${Math.round(z/4.5)}px;object-fit:cover;box-shadow:0 1px 4px rgba(0,0,0,.6)">`:`<span style="font-size:11px;padding:3px 6px;border-radius:6px;background:#222;color:#ddd">${esc(p[0])}</span>`;
-const MAJOR=/^(netflix|hulu|disney plus|disney\+|amazon prime video|prime video)/i;
-const provIcons=(key,max)=>{const c=provMap()[key];if(!c)return'';const mj=c.f.filter(p=>MAJOR.test(p[0]));
- const ic=mj.length?mj.slice(0,max).map(p=>pimg(p,26)).join(''):`<img src="stremio.png" alt="Stremio" title="Stremio" style="width:26px;height:26px;border-radius:6px;background:#0f0f1c;padding:3px;box-sizing:border-box;box-shadow:0 1px 4px rgba(0,0,0,.6)">`;
- return `<div aria-hidden="true" style="position:absolute;top:10px;left:24px;display:flex;gap:6px;align-items:center">${ic}</div>`};
-const provBlock=key=>{const c=provMap()[key];if(!c)return'';const grp=(lab,a)=>a.length?`<div style="display:flex;align-items:center;flex-wrap:wrap;gap:8px;margin-top:10px"><span style="font-size:18px;color:#9a9a9a;min-width:92px">${lab}</span>${a.map(p=>pimg(p,32)+`<span class="sys" style="font-size:13px;color:#bdbdbd;margin-right:6px">${esc(p[0])}</span>`).join('')}</div>`:'';
- const h=grp('STREAMING',c.f)+grp('RENT',c.r)+grp('BUY',c.b);return h||`<div class="sys" style="margin-top:10px;font-size:13px;color:#6f6f6f">No US streaming info found.</div>`};
+const BRANDS=[['Netflix',/^netflix/i],['Hulu',/^hulu/i],['Disney+',/^disney/i],['Prime Video',/^(amazon )?prime video/i]];
+const ADS=/ads/i;
+const majorProv=c=>{if(!c)return null;const out=[];BRANDS.forEach(([n,re])=>{const m=c.f.filter(p=>re.test(p[0]));if(m.length){const p=m.find(x=>!ADS.test(x[0]))||m[0];out.push([n,p[1]])}});return out.length?out:[['Stremio','stremio']]};
+const pimg2=(p,z)=>p[1]==='stremio'?`<img src="stremio.png" alt="Stremio" title="Stremio" style="width:${z}px;height:${z}px;border-radius:${Math.round(z/4.5)}px;background:#0f0f1c;padding:${Math.round(z/9)}px;box-sizing:border-box;box-shadow:0 1px 4px rgba(0,0,0,.6)">`:pimg(p,z);
+const provIcons=(key,z)=>{const L=majorProv(provMap()[key]);if(!L)return'';return `<span aria-hidden="true" style="display:inline-flex;gap:6px;align-items:center;vertical-align:middle;margin-left:14px">${L.map(p=>pimg2(p,z)).join('')}</span>`};
+const provBlock=key=>{const L=majorProv(provMap()[key]);if(!L)return'';return `<div style="display:flex;align-items:center;flex-wrap:wrap;gap:8px;margin-top:12px"><span style="font-size:18px;color:#9a9a9a;min-width:92px">STREAMING</span>${L.map(p=>pimg2(p,32)+`<span class="sys" style="font-size:13px;color:#bdbdbd;margin-right:6px">${esc(p[0])}</span>`).join('')}</div>`};
 const bdMap=()=>{try{return JSON.parse(ls.get('bd')||'{}')}catch(e){return{}}};
 const tmdbTok=()=>ls.get('tmdbTok');
 let bdBusy=false;
@@ -431,7 +431,7 @@ document.addEventListener('submit',e=>{if(e.target.id==='tf'){e.preventDefault()
 render();
 refreshLive(false);refreshMovies(false);
 loadArt();loadBackdrops();
-const BUILD='1795733343';
+const BUILD='1795733538';
 async function checkUpdate(){try{const r=await fetch(location.pathname+'?c='+Date.now(),{cache:'no-store'});if(!r.ok)return;const t=await r.text();const m=t.match(/const BUILD='(\d+)'/);if(m&&m[1]!==BUILD){location.replace(location.pathname+'?r='+m[1])}}catch(e){}}
 checkUpdate();
 document.addEventListener('visibilitychange',()=>{if(!document.hidden){checkUpdate();refreshLive(false);refreshMovies(false)}});
