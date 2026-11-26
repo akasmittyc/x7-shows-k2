@@ -113,7 +113,7 @@ const mDiff=d=>{const p=d.split('-').map(Number);return Date.UTC(p[0],p[1]-1,p[2
 function movieRowsHtml(){const BD=bdMap();
  const rows=movList().map(m=>{let label='TBA',sort=1e9,big=false;
   if(m.released){const df=mDiff(m.released);
-   if(df<0){label='RELEASED';sort=10000+(-df)}
+   if(df<0){label='RELEASED';sort=-100000+(-df)}
    else{label=df===0?'TODAY':df===1?'TOMORROW':df<=30?df+' DAYS':(df>300?mdUY:mdU).format(mDate(m.released)).toUpperCase();sort=df;big=df<=30}}
   return{m,label,sort,big}});
  rows.sort((a,b)=>(a.sort-b.sort)||(a.m.title<b.m.title?-1:1));
@@ -431,7 +431,7 @@ document.addEventListener('submit',e=>{if(e.target.id==='tf'){e.preventDefault()
 render();
 refreshLive(false);refreshMovies(false);
 loadArt();loadBackdrops();
-const BUILD='1795733864';
+const BUILD='1795734447';
 async function checkUpdate(){try{const r=await fetch(location.pathname+'?c='+Date.now(),{cache:'no-store'});if(!r.ok)return;const t=await r.text();const m=t.match(/const BUILD='(\d+)'/);if(m&&m[1]!==BUILD){location.replace(location.pathname+'?r='+m[1])}}catch(e){}}
 checkUpdate();
 document.addEventListener('visibilitychange',()=>{if(!document.hidden){checkUpdate();refreshLive(false);refreshMovies(false)}});
