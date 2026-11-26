@@ -1,11 +1,19 @@
 <!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>My Shows – Up Next</title>
+<title>My Shows</title>
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="My Shows">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<meta name="theme-color" content="#000000">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="icon" type="image/png" href="icon-192.png">
+<link rel="manifest" href="manifest.webmanifest">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bebas+Neue&display=swap">
 <style>
 *{box-sizing:border-box}
-body{margin:0;background:#000;color:#fff;font-family:'Bebas Neue','Arial Narrow',sans-serif}
+body{margin:0;padding-top:env(safe-area-inset-top);padding-bottom:env(safe-area-inset-bottom);background:#000;color:#fff;font-family:'Bebas Neue','Arial Narrow',sans-serif}
 @keyframes sp{to{transform:rotate(360deg)}}
 .spin{animation:sp .9s linear infinite}
 button{font:inherit;color:inherit;cursor:pointer}
