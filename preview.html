@@ -286,7 +286,10 @@ async function loadProviders(){const tk=tmdbTok();if(!tk||provBusy)return;provBu
   if(n&&S.view!=='search')render()}catch(e){}
  provBusy=false}
 const pimg=(p,z)=>p[1]?`<img src="https://image.tmdb.org/t/p/w92${p[1]}" alt="${esc(p[0])}" title="${esc(p[0])}" style="width:${z}px;height:${z}px;border-radius:${Math.round(z/4.5)}px;object-fit:cover;box-shadow:0 1px 4px rgba(0,0,0,.6)">`:`<span style="font-size:11px;padding:3px 6px;border-radius:6px;background:#222;color:#ddd">${esc(p[0])}</span>`;
-const provIcons=(key,max)=>{const c=provMap()[key];if(!c||!c.f.length)return'';const L=c.f.slice(0,max);return `<div aria-hidden="true" style="position:absolute;top:10px;left:24px;display:flex;gap:6px;align-items:center">${L.map(p=>pimg(p,26)).join('')}${c.f.length>max?`<span class="sys" style="font-size:12px;color:#ddd">+${c.f.length-max}</span>`:''}</div>`};
+const MAJOR=/^(netflix|hulu|disney plus|disney\+|amazon prime video|prime video)/i;
+const provIcons=(key,max)=>{const c=provMap()[key];if(!c)return'';const mj=c.f.filter(p=>MAJOR.test(p[0]));
+ const ic=mj.length?mj.slice(0,max).map(p=>pimg(p,26)).join(''):`<img src="stremio.png" alt="Stremio" title="Stremio" style="width:26px;height:26px;border-radius:6px;background:#0f0f1c;padding:3px;box-sizing:border-box;box-shadow:0 1px 4px rgba(0,0,0,.6)">`;
+ return `<div aria-hidden="true" style="position:absolute;top:10px;left:24px;display:flex;gap:6px;align-items:center">${ic}</div>`};
 const provBlock=key=>{const c=provMap()[key];if(!c)return'';const grp=(lab,a)=>a.length?`<div style="display:flex;align-items:center;flex-wrap:wrap;gap:8px;margin-top:10px"><span style="font-size:18px;color:#9a9a9a;min-width:92px">${lab}</span>${a.map(p=>pimg(p,32)+`<span class="sys" style="font-size:13px;color:#bdbdbd;margin-right:6px">${esc(p[0])}</span>`).join('')}</div>`:'';
  const h=grp('STREAMING',c.f)+grp('RENT',c.r)+grp('BUY',c.b);return h||`<div class="sys" style="margin-top:10px;font-size:13px;color:#6f6f6f">No US streaming info found.</div>`};
 const bdMap=()=>{try{return JSON.parse(ls.get('bd')||'{}')}catch(e){return{}}};
@@ -428,7 +431,7 @@ document.addEventListener('submit',e=>{if(e.target.id==='tf'){e.preventDefault()
 render();
 refreshLive(false);refreshMovies(false);
 loadArt();loadBackdrops();
-const BUILD='1795733029';
+const BUILD='1795733343';
 async function checkUpdate(){try{const r=await fetch(location.pathname+'?c='+Date.now(),{cache:'no-store'});if(!r.ok)return;const t=await r.text();const m=t.match(/const BUILD='(\d+)'/);if(m&&m[1]!==BUILD){location.replace(location.pathname+'?r='+m[1])}}catch(e){}}
 checkUpdate();
 document.addEventListener('visibilitychange',()=>{if(!document.hidden){checkUpdate();refreshLive(false);refreshMovies(false)}});
