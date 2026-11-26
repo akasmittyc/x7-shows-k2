@@ -176,7 +176,7 @@ async function addShow(r){set({adding:r.id});
   ls.set('hidden',JSON.stringify(hiddenL().filter(x=>x!==r.title.toLowerCase())));await unhideRemote(r.id);const l=added().filter(a=>a.id!==r.id);l.push({id:r.id,title:r.title,status:r.status,unw,eps:eps.slice(0,14)});saveAdded(l);
   const t=tok();let wmsg='';
   if(t){try{const w=await tpost('/sync/watchlist',{shows:[{ids:{trakt:r.id}}]},t);if(w.status===401){ls.del('traktTok')}if(w.status>=300){set({adding:null,view:'search',auth:'Added here, but Trakt watchlist failed (HTTP '+w.status+(w.status===401?', please reconnect':'')+').'});return}}catch(e){set({adding:null,view:'search',auth:'Added here, but Trakt watchlist failed ('+(e.message||'error')+').'});return}}
-  set({adding:null,view:'list',auth:''});scrollTo(0,0)}
+  set({adding:null,view:'list',auth:''});restoreY()}
  catch(e){set({adding:null,msg:'Could not add that show ('+(e.message||'error')+').'})}}
 async function connect(){try{set({pending:true,auth:'Contacting Trakt...'});const dc=await tpost('/oauth/device/code',{client_id:KEY});if(dc.status!==200)throw new Error('code request HTTP '+dc.status);const d=dc.body;
   const url=d.verification_url+'?code='+d.user_code;window.open(url,'_blank');
@@ -232,7 +232,7 @@ async function removeShow(t){
  const h=hiddenL();if(!h.includes(t.toLowerCase()))h.push(t.toLowerCase());ls.set('hidden',JSON.stringify(h));
  saveAdded(added().filter(a=>a.title!==t));
  const L=liveC();if(L&&L.shows){L.shows=L.shows.filter(x=>x.title!==t);ls.set('live',JSON.stringify(L))}
- set({view:'list',sel:null,confirmRm:null,rmMsg:'',liveMsg:(tk&&id&&!sec)?'Removed here, but Trakt would not mark it as dropped, so it may return on other devices.':''});scrollTo(0,0)}
+ set({view:'list',sel:null,confirmRm:null,rmMsg:'',liveMsg:(tk&&id&&!sec)?'Removed here, but Trakt would not mark it as dropped, so it may return on other devices.':''});restoreY()}
 const artMap=()=>{try{return JSON.parse(ls.get('art')||'{}')}catch(e){return{}}};
 const bdMap=()=>{try{return JSON.parse(ls.get('bd')||'{}')}catch(e){return{}}};
 const tmdbTok=()=>ls.get('tmdbTok');
@@ -261,6 +261,7 @@ async function loadArt(){if(artBusy)return;artBusy=true;
   if(n&&S.view==='list')render()}
  catch(e){}
  artBusy=false}
+let savedY=0;const restoreY=()=>{try{scrollTo(0,savedY)}catch(e){}};
 let liveBusy=false,liveP=null;
 const LIVE_TTL=15*60000,DET_TTL=60*60000,NEXT_TTL=24*3600000;
 function refreshLive(force){const p=refreshLive0(force);liveP=p;return p}
@@ -315,12 +316,12 @@ async function refreshProgress(){const t=tok();if(!t||refreshing)return;refreshi
  await Promise.all([w(),w(),w(),w(),w(),w()]);
  ls.set('prog',JSON.stringify(P));refreshing=false;S.synced=new Date();S.syncFail=fail;if(S.view==='list')render()}
 document.addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;
- if(b.dataset.open){set({view:'detail',sel:b.dataset.open,confirmRm:null,rmMsg:''});scrollTo(0,0);loadDetail(b.dataset.open)}
+ if(b.dataset.open){if(S.view==='list')savedY=window.scrollY||0;set({view:'detail',sel:b.dataset.open,confirmRm:null,rmMsg:''});scrollTo(0,0);loadDetail(b.dataset.open)}
  else if(b.dataset.mark){const D=S.det[S.sel];if(D&&D.unw)markEps(S.sel,D.unw.filter(x=>String(x.id)===b.dataset.mark))}
  else if(b.dataset.act==='markall'){const D=S.det[S.sel];if(D&&D.unw)markEps(S.sel,D.unw.slice())}
  else if(b.dataset.add!=null){addShow(S.results[+b.dataset.add])}
- else if(b.dataset.act==='back'){set({view:'list',sel:null});scrollTo(0,0)}
- else if(b.dataset.act==='search'){set({view:'search',results:[],msg:'Search Trakt by show title or actor name.'});scrollTo(0,0)}
+ else if(b.dataset.act==='back'){set({view:'list',sel:null});restoreY()}
+ else if(b.dataset.act==='search'){savedY=window.scrollY||0;set({view:'search',results:[],msg:'Search Trakt by show title or actor name.'});scrollTo(0,0)}
  else if(b.dataset.act==='refresh'){try{Object.keys(localStorage).filter(k=>k.indexOf('det_')===0).forEach(k=>localStorage.removeItem(k))}catch(e){}refreshLive('full')}
  else if(b.dataset.act==='tmdboff'){ls.del('tmdbTok');ls.del('bd');set({tmdbMsg:''})}
  else if(b.dataset.act==='retry'){loadDetail(S.sel)}
