@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<html lang="en"><head><meta http-equiv="Cache-Control" content="no-cache"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>My Shows</title>
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
@@ -400,7 +400,7 @@ document.addEventListener('click',e=>{const b=e.target.closest('button');if(!b)r
  else if(b.dataset.add!=null){const rr=S.results[+b.dataset.add];if(rr.kind==='movie')addMovie(rr);else addShow(rr)}
  else if(b.dataset.act==='back'){set({view:'list',sel:null});restoreY()}
  else if(b.dataset.act==='search'){savedY=window.scrollY||0;set({view:'search',results:[],msg:'Search Trakt by show, movie or actor name.'});scrollTo(0,0)}
- else if(b.dataset.act==='refresh'){refreshMovies(true);try{Object.keys(localStorage).filter(k=>k.indexOf('det_')===0).forEach(k=>localStorage.removeItem(k))}catch(e){}refreshLive('full')}
+ else if(b.dataset.act==='refresh'){checkUpdate();refreshMovies(true);try{Object.keys(localStorage).filter(k=>k.indexOf('det_')===0).forEach(k=>localStorage.removeItem(k))}catch(e){}refreshLive('full')}
  else if(b.dataset.act==='tmdboff'){ls.del('tmdbTok');ls.del('bd');set({tmdbMsg:''})}
  else if(b.dataset.act==='retry'){loadDetail(S.sel)}
  else if(b.dataset.act==='remove'){removeShow(S.sel)}
@@ -411,5 +411,8 @@ document.addEventListener('submit',e=>{if(e.target.id==='tf'){e.preventDefault()
 render();
 refreshLive(false);refreshMovies(false);
 loadArt();loadBackdrops();
-document.addEventListener('visibilitychange',()=>{if(!document.hidden){refreshLive(false);refreshMovies(false)}});
+const BUILD='1795718813';
+async function checkUpdate(){try{const r=await fetch(location.pathname+'?c='+Date.now(),{cache:'no-store'});if(!r.ok)return;const t=await r.text();const m=t.match(/const BUILD='(\d+)'/);if(m&&m[1]!==BUILD){location.replace(location.pathname+'?r='+m[1])}}catch(e){}}
+checkUpdate();
+document.addEventListener('visibilitychange',()=>{if(!document.hidden){checkUpdate();refreshLive(false);refreshMovies(false)}});
 </script></body></html>
