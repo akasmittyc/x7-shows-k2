@@ -82,12 +82,14 @@ const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;'
 const hue=t=>{let h=0;for(let i=0;i<t.length;i++)h=(h*31+t.charCodeAt(i))%360;return h};
 const pad=n=>n<10?'0'+n:''+n;
 const ls={get:k=>{try{return localStorage.getItem(k)}catch(e){return null}},set:(k,v)=>{try{localStorage.setItem(k,v)}catch(e){}},del:k=>{try{localStorage.removeItem(k)}catch(e){}}};
+const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+async function fx(url,o,n){n=n||4;for(let k=0;k<n;k++){try{const r=await fetch(url,o);if((r.status===429||r.status===420||r.status>=500)&&k<n-1){const ra=+r.headers.get('Retry-After')||0;await sleep(Math.max(ra*1000,1500*(k+1)));continue}return r}catch(e){if(k===n-1)throw e;await sleep(1500*(k+1))}}}
 const prog=()=>{try{return JSON.parse(ls.get('prog')||'{}')}catch(e){return{}}};
 let S={det:{},view:'list',sel:null,results:[],msg:'Search Trakt by show title or actor name.',auth:'',pending:false,adding:null};
 const added=()=>{try{return JSON.parse(ls.get('addedShows')||'[]')}catch(e){return[]}};
 const saveAdded=l=>ls.set('addedShows',JSON.stringify(l));
 const tok=()=>ls.get('traktTok');
-async function tj(p){const r=await fetch('https://api.trakt.tv'+p,{headers:{'trakt-api-version':'2','trakt-api-key':KEY}});if(!r.ok)throw new Error('HTTP '+r.status);return r.json()}
+async function tj(p){const r=await fx('https://api.trakt.tv'+p,{headers:{'trakt-api-version':'2','trakt-api-key':KEY}});if(!r.ok)throw new Error('HTTP '+r.status);return r.json()}
 async function tpost(p,b,t){const h={'Content-Type':'application/json','trakt-api-version':'2','trakt-api-key':KEY};if(t)h.Authorization='Bearer '+t;const r=await fetch('https://api.trakt.tv'+p,{method:'POST',headers:h,body:JSON.stringify(b)});let j=null;try{j=await r.json()}catch(e){}return{status:r.status,body:j}}
 const set=o=>{Object.assign(S,o);render();};
 const liveC=()=>{try{return JSON.parse(ls.get('live')||'null')}catch(e){return null}};
@@ -121,7 +123,7 @@ function render(){const A=allShows();let h='';
   const sec=t=>`<div style="margin:26px 0 0;font-size:28px;line-height:1;color:#9a9a9a;letter-spacing:.04em">${t}</div>`;
   if(!tok()){unwHtml=`<p class="sys" style="margin:20px 0 0;font-size:14px;color:#9a9a9a">Connect Trakt (+ button) to see and mark unwatched episodes.</p>`}
   else if(!D||D.loading){unwHtml=`<p class="sys" style="margin:20px 0 0;font-size:14px;color:#9a9a9a">Checking Trakt for unwatched episodes...</p>`}
-  else if(D.err){unwHtml=`<p class="sys" style="margin:20px 0 0;font-size:14px;color:#c98">${esc(D.err)}</p>`}
+  else if(D.err){unwHtml=`<p class="sys" style="margin:20px 0 0;font-size:14px;color:#c98">${esc(D.err)}</p><button class="ghost" data-act="retry" style="margin-top:10px">Try again</button>`}
   else if(D.unw.length){const shown=D.unw.slice(-40);
    unwHtml=sec('UNWATCHED &middot; '+D.unw.length)+`<button class="btn" data-act="markall" ${D.busy?'disabled':''} style="margin-top:14px">${D.busy?'Sending to Trakt...':'Mark all '+D.unw.length+' as watched'}</button>`+(D.unw.length>shown.length?`<p class="sys" style="margin:12px 0 0;font-size:13px;color:#8a8a8a">Showing the latest ${shown.length}; ${D.unw.length-shown.length} earlier ones are included in Mark all.</p>`:'')+shown.map(x=>{const d=x.a?wk.format(new Date(x.a)):'';return `<article class="ep"><div style="display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:6px 16px"><div style="font-size:34px;line-height:1">S${pad(x.s)}E${pad(x.e)}<span style="color:#bdbdbd"> &middot; ${esc(x.t?x.t.toUpperCase():'TITLE TBA')}</span></div><div style="font-size:26px;line-height:1">${esc(d)}</div></div><p class="sys" style="margin:12px 0 0;font-size:15px;line-height:1.5;color:${x.o?'#cfcfcf':'#6f6f6f'}">${esc(x.o||'Description not available yet.')}</p><button class="ghost" data-mark="${x.id}" ${D.busy?'disabled':''} style="margin-top:12px;font-size:16px">Mark watched</button></article>`}).join('')}
   else{unwHtml=`<p class="sys" style="margin:20px 0 0;font-size:14px;color:#9a9a9a">You're all caught up on Trakt.</p>`}
@@ -158,9 +160,9 @@ async function connect(){try{set({pending:true,auth:'Contacting Trakt...'});cons
    if(t.status===400||t.status===429)continue;throw new Error('sign-in HTTP '+t.status)}
   throw new Error('code expired')}catch(e){set({pending:false,auth:'Could not connect to Trakt ('+(e.message||'error')+').'})}}
 const showId=t=>IDS[t]||(((liveC()||{}).shows||[]).find(a=>a.title===t)||{}).id||(added().find(a=>a.title===t)||{}).id;
-async function loadDetail(t){const id=showId(t),tk=tok();if(!id)return;S.det[t]={loading:true};
+async function loadDetail(t){const id=showId(t),tk=tok();if(!id)return;S.det[t]={loading:true};if(S.view==='detail'&&S.sel===t)render();
  try{const H={'trakt-api-version':'2','trakt-api-key':KEY,Authorization:'Bearer '+tk};
-  const [sr,pr]=await Promise.all([fetch('https://api.trakt.tv/shows/'+id+'/seasons?extended=episodes,full',{headers:{'trakt-api-version':'2','trakt-api-key':KEY}}),tk?fetch('https://api.trakt.tv/shows/'+id+'/progress/watched',{headers:H}):Promise.resolve(null)]);
+  const [sr,pr]=await Promise.all([fx('https://api.trakt.tv/shows/'+id+'/seasons?extended=episodes,full',{headers:{'trakt-api-version':'2','trakt-api-key':KEY}}),tk?fx('https://api.trakt.tv/shows/'+id+'/progress/watched',{headers:H}):Promise.resolve(null)]);
   if(pr&&pr.status===401){ls.del('traktTok');throw new Error('Trakt login expired. Reconnect with the + button.')}
   if(!sr.ok||(pr&&!pr.ok))throw new Error((sr.ok?'Trakt progress check':'Trakt episode list')+' returned HTTP '+(sr.ok?pr.status:sr.status));
   const seasons=await sr.json(),pg=pr?await pr.json():{};const done=new Set();
@@ -198,7 +200,7 @@ let liveBusy=false,liveAt=0;
 async function refreshLive(force){const t=tok();if(!t||liveBusy||(!force&&Date.now()-liveAt<60000))return;liveBusy=true;liveAt=Date.now();S.liveMsg='Loading your shows from Trakt...';if(S.view==='list')render();
  const H={'trakt-api-version':'2','trakt-api-key':KEY,Authorization:'Bearer '+t};const HP={'trakt-api-version':'2','trakt-api-key':KEY};
  try{
-  const [wr,lr]=await Promise.all([fetch('https://api.trakt.tv/sync/watched/shows?extended=noseasons,full',{headers:H}),fetch('https://api.trakt.tv/sync/watchlist/shows?extended=full',{headers:H})]);
+  const [wr,lr]=await Promise.all([fx('https://api.trakt.tv/sync/watched/shows?extended=noseasons,full',{headers:H}),fx('https://api.trakt.tv/sync/watchlist/shows?extended=full',{headers:H})]);
   if(wr.status===401){ls.del('traktTok');throw new Error('login expired, reconnect with +')}
   if(!wr.ok)throw new Error('watched list HTTP '+wr.status);
   const watched=await wr.json();const wl=lr.ok?await lr.json():[];
@@ -208,13 +210,13 @@ async function refreshLive(force){const t=tok();if(!t||liveBusy||(!force&&Date.n
   wl.forEach(w=>{const sh=w.show;if(!sh||!sh.ids)return;const ended=sh.status==='ended'||sh.status==='canceled';if(!ended&&!cand.has(sh.ids.trakt))cand.set(sh.ids.trakt,{title:sh.title,id:sh.ids.trakt,status:sh.status||''})});
   const items=[...cand.values()];let i=0,fail=0;const out=[];
   async function w(){while(i<items.length){const it=items[i++];
-   try{const [pr,nr]=await Promise.all([fetch('https://api.trakt.tv/shows/'+it.id+'/progress/watched',{headers:H}),fetch('https://api.trakt.tv/shows/'+it.id+'/next_episode?extended=full',{headers:HP})]);
+   try{const [pr,nr]=await Promise.all([fx('https://api.trakt.tv/shows/'+it.id+'/progress/watched',{headers:H}),fx('https://api.trakt.tv/shows/'+it.id+'/next_episode?extended=full',{headers:HP})]);
     if(!pr.ok){fail++;continue}const pg=await pr.json();const unw=Math.max(0,(pg.aired||0)-(pg.completed||0));let next=null;
     if(nr.status===200){const ne=await nr.json();if(ne&&ne.first_aired&&new Date(ne.first_aired).getTime()>now)next=ne.first_aired}
     const ended=it.status==='ended'||it.status==='canceled';
     if(ended&&unw===0)continue;
     out.push({title:it.title,id:it.id,status:it.status,unw,next})}catch(e){fail++}}}
-  await Promise.all([w(),w(),w(),w(),w(),w()]);
+  await Promise.all([w(),w(),w(),w()]);
   if(out.length){ls.set('live',JSON.stringify({t:Date.now(),shows:out}));const P={};out.forEach(x=>P[x.title]=x.unw);ls.set('prog',JSON.stringify(P))}
   S.synced=new Date();S.syncFail=fail;S.liveMsg=''}
  catch(e){S.liveMsg='Could not load your shows from Trakt ('+(e.message||'error')+'). Showing the last saved list.'}
@@ -224,7 +226,7 @@ async function refreshProgress(){const t=tok();if(!t||refreshing)return;refreshi
  const A=allShows();const items=A.list.map(x=>x[0]).map(n=>({n,id:IDS[n]||(A.a.find(a=>a.title===n)||{}).id})).filter(x=>x.id);
  const P=prog();let i=0,fail=0;
  async function w(){while(i<items.length){const it=items[i++];
-  try{const r=await fetch('https://api.trakt.tv/shows/'+it.id+'/progress/watched',{headers:{'trakt-api-version':'2','trakt-api-key':KEY,Authorization:'Bearer '+t}});
+  try{const r=await fx('https://api.trakt.tv/shows/'+it.id+'/progress/watched',{headers:{'trakt-api-version':'2','trakt-api-key':KEY,Authorization:'Bearer '+t}});
    if(r.status===401){ls.del('traktTok');i=items.length;return}
    if(!r.ok){fail++;continue}const j=await r.json();P[it.n]=Math.max(0,(j.aired||0)-(j.completed||0))}catch(e){fail++}}}
  await Promise.all([w(),w(),w(),w(),w(),w()]);
@@ -236,6 +238,7 @@ document.addEventListener('click',e=>{const b=e.target.closest('button');if(!b)r
  else if(b.dataset.add!=null){addShow(S.results[+b.dataset.add])}
  else if(b.dataset.act==='back'){set({view:'list',sel:null});scrollTo(0,0)}
  else if(b.dataset.act==='search'){set({view:'search',results:[],msg:'Search Trakt by show title or actor name.'});scrollTo(0,0)}
+ else if(b.dataset.act==='retry'){loadDetail(S.sel)}
  else if(b.dataset.act==='remove'){removeShow(S.sel)}
  else if(b.dataset.act==='connect'){connect()}
  else if(b.dataset.act==='disconnect'){ls.del('traktTok');set({auth:''})}});
