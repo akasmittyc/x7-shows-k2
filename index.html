@@ -291,7 +291,7 @@ const ADS=/ads/i;
 const majorProv=c=>{if(!c)return null;const out=[];BRANDS.forEach(([n,re])=>{const m=c.f.filter(p=>re.test(p[0]));if(m.length){const p=m.find(x=>!ADS.test(x[0]))||m[0];out.push([n,p[1]])}});return out.length?out:[['Stremio','stremio']]};
 const pimg2=(p,z)=>p[1]==='stremio'?`<img src="stremio.png" alt="Stremio" title="Stremio" style="width:${z}px;height:${z}px;border-radius:${Math.round(z/4.5)}px;background:#0f0f1c;padding:${Math.round(z/9)}px;box-sizing:border-box;box-shadow:0 1px 4px rgba(0,0,0,.6)">`:pimg(p,z);
 const provIcons=(key,z)=>{const L=majorProv(provMap()[key]);if(!L)return'';return `<span aria-hidden="true" style="display:inline-flex;gap:6px;align-items:center;vertical-align:middle;margin-left:14px">${L.map(p=>pimg2(p,z)).join('')}</span>`};
-const provBlock=key=>{const L=majorProv(provMap()[key]);if(!L)return'';return `<div style="display:flex;align-items:center;flex-wrap:wrap;gap:8px;margin-top:12px"><span style="font-size:18px;color:#9a9a9a;min-width:92px">STREAMING</span>${L.map(p=>pimg2(p,32)+`<span class="sys" style="font-size:13px;color:#bdbdbd;margin-right:6px">${esc(p[0])}</span>`).join('')}</div>`};
+const provBlock=key=>{const c=provMap()[key];if(!c)return'';const L=c.f.length?c.f:[['Stremio','stremio']];return `<div style="display:flex;align-items:center;flex-wrap:wrap;gap:8px;margin-top:12px"><span style="font-size:18px;color:#9a9a9a;min-width:92px">STREAMING</span>${L.map(p=>pimg2(p,32)+`<span class="sys" style="font-size:13px;color:#bdbdbd;margin-right:6px">${esc(p[0])}</span>`).join('')}</div>`};
 const bdMap=()=>{try{return JSON.parse(ls.get('bd')||'{}')}catch(e){return{}}};
 const tmdbTok=()=>ls.get('tmdbTok');
 let bdBusy=false;
@@ -431,7 +431,7 @@ document.addEventListener('submit',e=>{if(e.target.id==='tf'){e.preventDefault()
 render();
 refreshLive(false);refreshMovies(false);
 loadArt();loadBackdrops();
-const BUILD='1795733709';
+const BUILD='1795733864';
 async function checkUpdate(){try{const r=await fetch(location.pathname+'?c='+Date.now(),{cache:'no-store'});if(!r.ok)return;const t=await r.text();const m=t.match(/const BUILD='(\d+)'/);if(m&&m[1]!==BUILD){location.replace(location.pathname+'?r='+m[1])}}catch(e){}}
 checkUpdate();
 document.addEventListener('visibilitychange',()=>{if(!document.hidden){checkUpdate();refreshLive(false);refreshMovies(false)}});
