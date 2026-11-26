@@ -6,6 +6,8 @@
 <style>
 *{box-sizing:border-box}
 body{margin:0;background:#000;color:#fff;font-family:'Bebas Neue','Arial Narrow',sans-serif}
+@keyframes sp{to{transform:rotate(360deg)}}
+.spin{animation:sp .9s linear infinite}
 button{font:inherit;color:inherit;cursor:pointer}
 .w{max-width:760px;margin:0 auto}
 header.w{padding:28px 20px 20px;display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px;border-bottom:1px solid #1c1c1c}
@@ -115,7 +117,7 @@ function rel(d,dateOnly){const today=dayNum(new Date());const diff=dateOnly?Math
 const hdr=(inner)=>`<header class="w" style="display:block;padding:20px 20px 22px"><button class="back" data-act="back">&#8592; Shows</button>${inner}</header>`;
 function render(){const A=allShows();let h='';
  if(S.view==='list'){const r=rowsHtml(A.list);
-  h=`<header class="w"><div style="display:flex;align-items:center;gap:12px"><span style="width:10px;height:10px;border-radius:50%;background:#fff"></span><h1 style="font-size:34px;letter-spacing:.02em">Shows</h1></div><div style="display:flex;align-items:center;gap:10px"><button class="plus" data-act="refresh" aria-label="Refresh from Trakt" style="font-size:30px;background:#151515;color:#fff;padding:0 0 3px">&#8635;</button><button class="plus" data-act="search" aria-label="Add a show">+</button><div class="pill">${r.n}</div></div></header><main class="w">${r.html}</main><footer class="w sys note">The number on the right is how many aired episodes you haven't watched. Your list, counts and air dates come from Trakt and are re-checked every 15 minutes (tap &#8635; to refresh now). Shows that have ended or been canceled appear only while you still have unwatched episodes. and ended shows you haven't watched in 90 days are left off. Tap a show to see its upcoming and unwatched episodes. Countdowns and air times use Eastern time.${S.liveMsg?' '+S.liveMsg:(S.synced?' Last synced '+tm.format(S.synced)+' ET'+(S.syncFail?' ('+S.syncFail+' shows could not be checked)':'')+'.':(tok()?'':' Connect Trakt (+ button) to load your own list; until then this is a saved snapshot from Nov 25.'))}</footer>`}
+  h=`<header class="w"><div style="display:flex;align-items:center;gap:12px"><span style="width:10px;height:10px;border-radius:50%;background:#fff"></span><h1 style="font-size:34px;letter-spacing:.02em">Shows</h1></div><div style="display:flex;align-items:center;gap:10px"><button class="plus${liveBusy?' spin':''}" data-act="refresh" aria-label="Refresh from Trakt" style="font-size:30px;background:#151515;color:#fff;padding:0 0 3px">&#8635;</button><button class="plus" data-act="search" aria-label="Add a show">+</button><div class="pill">${r.n}</div></div></header><main class="w">${r.html}</main><footer class="w sys note">The number on the right is how many aired episodes you haven't watched. Your list, counts and air dates come from Trakt and are re-checked every 15 minutes (tap &#8635; to refresh now). Shows that have ended or been canceled appear only while you still have unwatched episodes. and ended shows you haven't watched in 90 days are left off. Tap a show to see its upcoming and unwatched episodes. Countdowns and air times use Eastern time.${S.liveMsg?' '+S.liveMsg:(S.synced?' Last synced '+tm.format(S.synced)+' ET'+(S.syncFail?' ('+S.syncFail+' shows could not be checked)':'')+'.':(tok()?'':' Connect Trakt (+ button) to load your own list; until then this is a saved snapshot from Nov 25.'))}</footer>`}
  else if(S.view==='detail'){const list=(S.det[S.sel]&&S.det[S.sel].up)||A.eps[S.sel]||[];const isAdded=A.a.some(x=>x.title===S.sel);
   const eps=list.map(x=>{let date='Date TBA',rl='';if(x.a){const d=new Date(x.a),dO=x.a.indexOf('T00:00:00')>-1;date=dO?wkU.format(d):wk.format(d)+' \u00b7 '+tm.format(d)+' ET';rl=rel(d,dO)}
    return `<article class="ep"><div style="display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:6px 16px"><div style="font-size:34px;line-height:1">S${pad(x.s)}E${pad(x.e)}<span style="color:#bdbdbd"> &middot; ${esc(x.t?x.t.toUpperCase():'TITLE TBA')}</span></div><div style="font-size:26px;line-height:1">${esc(date)}</div></div><div style="margin-top:6px;font-size:20px;line-height:1;color:#8a8a8a">${rl}</div><p class="sys" style="margin:12px 0 0;font-size:15px;line-height:1.5;color:${x.o?'#cfcfcf':'#6f6f6f'}">${esc(x.o||'Description not available yet.')}</p></article>`}).join('');
@@ -202,7 +204,7 @@ async function removeShow(t){
  set({view:'list',sel:null,confirmRm:null,rmMsg:''});scrollTo(0,0)}
 let liveBusy=false;
 const LIVE_TTL=15*60000,DET_TTL=60*60000,NEXT_TTL=24*3600000;
-async function refreshLive(force){const t=tok();if(!t||liveBusy)return;
+async function refreshLive(force){const t=tok();if(!t){if(force){S.liveMsg='Connect Trakt first (+ button) to refresh.';if(S.view==='list')render()}return}if(liveBusy)return;
  const L0=liveC();if(!force&&L0&&L0.t&&Date.now()-L0.t<LIVE_TTL)return;
  liveBusy=true;S.liveMsg=L0?'Updating from Trakt...':'Loading your shows from Trakt...';if(S.view==='list')render();
  const H={'trakt-api-version':'2','trakt-api-key':KEY,Authorization:'Bearer '+t};const HP={'trakt-api-version':'2','trakt-api-key':KEY};
