@@ -167,21 +167,25 @@ const detSet=(id,D)=>{try{ls.set('det_'+id,JSON.stringify({t:Date.now(),unw:D.un
 async function loadDetail(t){const id=showId(t),tk=tok();if(!id)return;
  const c=detGet(id);if(c&&(c.hasProg||!tk)){S.det[t]={unw:c.unw,up:c.up,hasProg:c.hasProg};if(S.view==='detail'&&S.sel===t)render();return}
  S.det[t]={loading:true};if(S.view==='detail'&&S.sel===t)render();
- try{const H={'trakt-api-version':'2','trakt-api-key':KEY,Authorization:'Bearer '+tk};
-  const [sr,pr]=await Promise.all([fx('https://api.trakt.tv/shows/'+id+'/seasons?extended=episodes,full',{headers:{'trakt-api-version':'2','trakt-api-key':KEY}}),tk?fx('https://api.trakt.tv/shows/'+id+'/progress/watched',{headers:H}):Promise.resolve(null)]);
-  if(pr&&pr.status===401){ls.del('traktTok');throw new Error('Trakt login expired. Reconnect with the + button.')}
-  if(!sr.ok||(pr&&!pr.ok))throw new Error((sr.ok?'Trakt progress check':'Trakt episode list')+' returned HTTP '+(sr.ok?pr.status:sr.status));
-  const seasons=await sr.json(),pg=pr?await pr.json():{};const done=new Set();
-  (pg.seasons||[]).forEach(sn=>(sn.episodes||[]).forEach(e=>{if(e.completed)done.add(sn.number+'x'+e.number)}));
-  const now=Date.now(),unw=[],up=[];const top=Math.max(0,...seasons.filter(x=>x.number>0).map(x=>x.number));
-  seasons.forEach(sn=>{if(sn.number===0)return;(sn.episodes||[]).forEach(e=>{let ti=e.title||'';if(/^episode \d+$/i.test(ti)||ti==='TBA')ti='';const o=(e.overview||'').trim();const od=o.length>260?o.slice(0,257).replace(/\s+\S*$/,'')+'...':o;
-   if(e.first_aired&&new Date(e.first_aired).getTime()>now){up.push({s:sn.number,e:e.number,t:ti,a:e.first_aired,o:od});return}
-   if(!e.first_aired){if(sn.number===top)up.push({s:sn.number,e:e.number,t:ti,a:null,o:od});return}
-   if(done.has(sn.number+'x'+e.number))return;unw.push({id:e.ids.trakt,s:sn.number,e:e.number,t:ti,a:e.first_aired,o:od})})});
+ let step='';
+ try{const H={'trakt-api-version':'2','trakt-api-key':KEY,Authorization:'Bearer '+tk},HP={'trakt-api-version':'2','trakt-api-key':KEY};
+  const get=async(label,url,hd)=>{step=label;const r=await fx(url,{headers:hd});if(r.status===401&&hd===H){ls.del('traktTok');throw new Error('Trakt login expired. Reconnect with the + button.')}if(!r.ok)throw new Error(label+' returned HTTP '+r.status);return r.json()};
+  const [sl,pg]=await Promise.all([get('season list','https://api.trakt.tv/shows/'+id+'/seasons',HP),tk?get('progress check','https://api.trakt.tv/shows/'+id+'/progress/watched',H):Promise.resolve({})]);
+  const done=new Set(),need=new Set();
+  const nums=sl.map(x=>x.number).filter(n=>n>0);const top=Math.max(0,...nums);if(top)need.add(top);
+  (pg.seasons||[]).forEach(sn=>(sn.episodes||[]).forEach(e=>{if(e.completed)done.add(sn.number+'x'+e.number);else if(sn.number>0)need.add(sn.number)}));
+  const list=[...need].sort((x,y)=>x-y);const eps={};
+  let k=0;async function w(){while(k<list.length){const n=list[k++];eps[n]=await get('episodes for season '+n,'https://api.trakt.tv/shows/'+id+'/seasons/'+n+'/episodes?extended=full',HP)}}
+  await Promise.all([w(),w()]);
+  const now=Date.now(),unw=[],up=[];
+  list.forEach(n=>(eps[n]||[]).forEach(e=>{let ti=e.title||'';if(/^episode \d+$/i.test(ti)||ti==='TBA')ti='';const o=(e.overview||'').trim();const od=o.length>260?o.slice(0,257).replace(/\s+\S*$/,'')+'...':o;
+   if(e.first_aired&&new Date(e.first_aired).getTime()>now){up.push({s:n,e:e.number,t:ti,a:e.first_aired,o:od});return}
+   if(!e.first_aired){if(n===top)up.push({s:n,e:e.number,t:ti,a:null,o:od});return}
+   if(done.has(n+'x'+e.number))return;unw.push({id:e.ids.trakt,s:n,e:e.number,t:ti,a:e.first_aired,o:od})}));
   up.sort((x,y)=>(x.a?0:1)-(y.a?0:1)||(x.a||'').localeCompare(y.a||'')||x.s-y.s||x.e-y.e);
   unw.sort((a,b)=>a.a.localeCompare(b.a));
-  S.det[t]={unw,up:up.slice(0,14),hasProg:!!pr};detSet(id,S.det[t]);if(pr){const P=prog();P[t]=unw.length;ls.set('prog',JSON.stringify(P))}}
- catch(e){S.det[t]={err:e.message||'Could not load from Trakt'}}
+  S.det[t]={unw,up:up.slice(0,14),hasProg:!!tk};detSet(id,S.det[t]);if(tk){const P=prog();P[t]=unw.length;ls.set('prog',JSON.stringify(P))}}
+ catch(e){S.det[t]={err:(step?'Could not load '+step+' ('+(e.message||'error')+')':(e.message||'Could not load from Trakt'))}}
  if(S.view==='detail'&&S.sel===t)render()}
 async function markEps(t,list){const D=S.det[t];if(!D||!list.length||D.busy)return;D.busy=true;D.msg='';render();
  try{const r=await tpost('/sync/history',{episodes:list.map(x=>({ids:{trakt:x.id},watched_at:'released'}))},tok());
