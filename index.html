@@ -83,7 +83,7 @@ const hue=t=>{let h=0;for(let i=0;i<t.length;i++)h=(h*31+t.charCodeAt(i))%360;re
 const pad=n=>n<10?'0'+n:''+n;
 const ls={get:k=>{try{return localStorage.getItem(k)}catch(e){return null}},set:(k,v)=>{try{localStorage.setItem(k,v)}catch(e){}},del:k=>{try{localStorage.removeItem(k)}catch(e){}}};
 const prog=()=>{try{return JSON.parse(ls.get('prog')||'{}')}catch(e){return{}}};
-let S={view:'list',sel:null,results:[],msg:'Search Trakt by show title or actor name.',auth:'',pending:false,adding:null};
+let S={det:{},view:'list',sel:null,results:[],msg:'Search Trakt by show title or actor name.',auth:'',pending:false,adding:null};
 const added=()=>{try{return JSON.parse(ls.get('addedShows')||'[]')}catch(e){return[]}};
 const saveAdded=l=>ls.set('addedShows',JSON.stringify(l));
 const tok=()=>ls.get('traktTok');
@@ -110,7 +110,16 @@ function render(){const A=allShows();let h='';
  else if(S.view==='detail'){const list=A.eps[S.sel]||[];const isAdded=A.a.some(x=>x.title===S.sel);
   const eps=list.map(x=>{let date='Date TBA',rl='';if(x.a){const d=new Date(x.a),dO=x.a.indexOf('T00:00:00')>-1;date=dO?wkU.format(d):wk.format(d)+' \u00b7 '+tm.format(d)+' ET';rl=rel(d,dO)}
    return `<article class="ep"><div style="display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:6px 16px"><div style="font-size:34px;line-height:1">S${pad(x.s)}E${pad(x.e)}<span style="color:#bdbdbd"> &middot; ${esc(x.t?x.t.toUpperCase():'TITLE TBA')}</span></div><div style="font-size:26px;line-height:1">${esc(date)}</div></div><div style="margin-top:6px;font-size:20px;line-height:1;color:#8a8a8a">${rl}</div><p class="sys" style="margin:12px 0 0;font-size:15px;line-height:1.5;color:${x.o?'#cfcfcf':'#6f6f6f'}">${esc(x.o||'Description not available yet.')}</p></article>`}).join('');
-  h=hdr(`<h1 style="margin:22px 0 6px;font-size:52px;line-height:.95">${esc(S.sel.toUpperCase())}</h1><div style="font-size:24px;line-height:1;color:#9a9a9a">${list.length?list.length+(list.length===1?' UPCOMING EPISODE':' UPCOMING EPISODES'):'NOTHING ANNOUNCED'}</div>${isAdded?'<button class="ghost" data-act="remove" style="margin-top:18px;font-size:20px;color:#bdbdbd">Remove from list</button>':''}`)+`<main class="w" style="padding:8px 20px 48px">${list.length?'':'<p class="sys" style="margin:28px 0;font-size:15px;color:#9a9a9a">No upcoming episodes announced on Trakt yet.</p>'}${eps}</main>`}
+  const D=S.det[S.sel];let unwHtml='';
+  const sec=t=>`<div style="margin:26px 0 0;font-size:28px;line-height:1;color:#9a9a9a;letter-spacing:.04em">${t}</div>`;
+  if(!tok()){unwHtml=`<p class="sys" style="margin:20px 0 0;font-size:14px;color:#9a9a9a">Connect Trakt (+ button) to see and mark unwatched episodes.</p>`}
+  else if(!D||D.loading){unwHtml=`<p class="sys" style="margin:20px 0 0;font-size:14px;color:#9a9a9a">Checking Trakt for unwatched episodes...</p>`}
+  else if(D.err){unwHtml=`<p class="sys" style="margin:20px 0 0;font-size:14px;color:#c98">${esc(D.err)}</p>`}
+  else if(D.unw.length){const shown=D.unw.slice(-40);
+   unwHtml=sec('UNWATCHED &middot; '+D.unw.length)+`<button class="btn" data-act="markall" ${D.busy?'disabled':''} style="margin-top:14px">${D.busy?'Sending to Trakt...':'Mark all '+D.unw.length+' as watched'}</button>`+(D.unw.length>shown.length?`<p class="sys" style="margin:12px 0 0;font-size:13px;color:#8a8a8a">Showing the latest ${shown.length}; ${D.unw.length-shown.length} earlier ones are included in Mark all.</p>`:'')+shown.map(x=>{const d=x.a?wk.format(new Date(x.a)):'';return `<article class="ep"><div style="display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:6px 16px"><div style="font-size:34px;line-height:1">S${pad(x.s)}E${pad(x.e)}<span style="color:#bdbdbd"> &middot; ${esc(x.t?x.t.toUpperCase():'TITLE TBA')}</span></div><div style="font-size:26px;line-height:1">${esc(d)}</div></div><p class="sys" style="margin:12px 0 0;font-size:15px;line-height:1.5;color:${x.o?'#cfcfcf':'#6f6f6f'}">${esc(x.o||'Description not available yet.')}</p><button class="ghost" data-mark="${x.id}" ${D.busy?'disabled':''} style="margin-top:12px;font-size:16px">Mark watched</button></article>`}).join('')}
+  else{unwHtml=`<p class="sys" style="margin:20px 0 0;font-size:14px;color:#9a9a9a">You're all caught up on Trakt.</p>`}
+  if(D&&D.msg)unwHtml=`<p class="sys" style="margin:16px 0 0;font-size:14px;color:#9a9a9a">${esc(D.msg)}</p>`+unwHtml;
+  h=hdr(`<h1 style="margin:22px 0 6px;font-size:52px;line-height:.95">${esc(S.sel.toUpperCase())}</h1><div style="font-size:24px;line-height:1;color:#9a9a9a">${list.length?list.length+(list.length===1?' UPCOMING EPISODE':' UPCOMING EPISODES'):'NOTHING ANNOUNCED'}</div>${isAdded?'<button class="ghost" data-act="remove" style="margin-top:18px;font-size:20px;color:#bdbdbd">Remove from list</button>':''}`)+`<main class="w" style="padding:8px 20px 48px">${unwHtml}${list.length?sec('UPCOMING'):''}${list.length?'':'<p class="sys" style="margin:28px 0;font-size:15px;color:#9a9a9a">No upcoming episodes announced on Trakt yet.</p>'}${eps}</main>`}
  else{const t=tok();const have=new Set(A.list.map(x=>x[0].toLowerCase()));
   const res=S.results.map((r,i)=>{const dn=have.has(r.title.toLowerCase());const busy=S.adding===r.id;
    return `<article style="padding:18px 0;border-bottom:1px solid #1c1c1c;display:flex;gap:14px;align-items:flex-start"><div style="flex:1;min-width:0"><div style="font-size:32px;line-height:1">${esc(r.title.toUpperCase())}</div><div style="margin-top:6px;font-size:20px;line-height:1;color:#8a8a8a">${esc([r.year,r.network,r.status,r.via].filter(Boolean).join(' \u00b7 ').toUpperCase())}</div><p class="sys" style="margin:10px 0 0;font-size:14px;line-height:1.45;color:#bdbdbd">${esc(r.overview)}</p></div><button class="btn" data-add="${i}" ${dn||busy?'disabled':''}>${dn?'Added':busy?'Adding...':'+ Add'}</button></article>`}).join('');
@@ -141,6 +150,28 @@ async function connect(){try{set({pending:true,auth:'Contacting Trakt...'});cons
    if(t.status===200&&t.body&&t.body.access_token){ls.set('traktTok',t.body.access_token);set({pending:false,auth:''});return}
    if(t.status===400||t.status===429)continue;throw new Error('sign-in HTTP '+t.status)}
   throw new Error('code expired')}catch(e){set({pending:false,auth:'Could not connect to Trakt ('+(e.message||'error')+').'})}}
+const showId=t=>IDS[t]||(added().find(a=>a.title===t)||{}).id;
+async function loadDetail(t){const id=showId(t),tk=tok();if(!tk||!id)return;S.det[t]={loading:true};
+ try{const H={'trakt-api-version':'2','trakt-api-key':KEY,Authorization:'Bearer '+tk};
+  const [sr,pr]=await Promise.all([fetch('https://api.trakt.tv/shows/'+id+'/seasons?extended=episodes,full',{headers:H}),fetch('https://api.trakt.tv/shows/'+id+'/progress/watched',{headers:H})]);
+  if(pr.status===401){ls.del('traktTok');throw new Error('Trakt login expired. Reconnect with the + button.')}
+  if(!sr.ok||!pr.ok)throw new Error('Trakt returned HTTP '+(sr.ok?pr.status:sr.status));
+  const seasons=await sr.json(),pg=await pr.json();const done=new Set();
+  (pg.seasons||[]).forEach(sn=>(sn.episodes||[]).forEach(e=>{if(e.completed)done.add(sn.number+'x'+e.number)}));
+  const now=Date.now(),unw=[];
+  seasons.forEach(sn=>{if(sn.number===0)return;(sn.episodes||[]).forEach(e=>{if(!e.first_aired||new Date(e.first_aired).getTime()>now||done.has(sn.number+'x'+e.number))return;let ti=e.title||'';if(/^episode \d+$/i.test(ti)||ti==='TBA')ti='';const o=(e.overview||'').trim();unw.push({id:e.ids.trakt,s:sn.number,e:e.number,t:ti,a:e.first_aired,o:o.length>260?o.slice(0,257).replace(/\s+\S*$/,'')+'...':o})})});
+  unw.sort((a,b)=>a.a.localeCompare(b.a));
+  S.det[t]={unw};const P=prog();P[t]=unw.length;ls.set('prog',JSON.stringify(P))}
+ catch(e){S.det[t]={err:e.message||'Could not load from Trakt'}}
+ if(S.view==='detail'&&S.sel===t)render()}
+async function markEps(t,list){const D=S.det[t];if(!D||!list.length||D.busy)return;D.busy=true;D.msg='';render();
+ try{const r=await tpost('/sync/history',{episodes:list.map(x=>({ids:{trakt:x.id},watched_at:'released'}))},tok());
+  if(r.status===401){ls.del('traktTok');throw new Error('Trakt login expired. Reconnect with the + button.')}
+  if(r.status>=300)throw new Error('Trakt returned HTTP '+r.status);
+  const ok=new Set(list.map(x=>x.id));D.unw=D.unw.filter(x=>!ok.has(x.id));D.msg='Marked '+((r.body&&r.body.added&&r.body.added.episodes)||list.length)+' episode'+(list.length===1?'':'s')+' as watched on Trakt.';
+  const P=prog();P[t]=D.unw.length;ls.set('prog',JSON.stringify(P))}
+ catch(e){D.msg='Could not mark as watched ('+(e.message||'error')+').'}
+ D.busy=false;render()}
 let refreshing=false;
 async function refreshProgress(){const t=tok();if(!t||refreshing)return;refreshing=true;
  const A=allShows();const items=A.list.map(x=>x[0]).map(n=>({n,id:IDS[n]||(A.a.find(a=>a.title===n)||{}).id})).filter(x=>x.id);
@@ -152,7 +183,9 @@ async function refreshProgress(){const t=tok();if(!t||refreshing)return;refreshi
  await Promise.all([w(),w(),w(),w(),w(),w()]);
  ls.set('prog',JSON.stringify(P));refreshing=false;S.synced=new Date();S.syncFail=fail;if(S.view==='list')render()}
 document.addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;
- if(b.dataset.open){set({view:'detail',sel:b.dataset.open});scrollTo(0,0)}
+ if(b.dataset.open){set({view:'detail',sel:b.dataset.open});scrollTo(0,0);loadDetail(b.dataset.open)}
+ else if(b.dataset.mark){const D=S.det[S.sel];if(D&&D.unw)markEps(S.sel,D.unw.filter(x=>String(x.id)===b.dataset.mark))}
+ else if(b.dataset.act==='markall'){const D=S.det[S.sel];if(D&&D.unw)markEps(S.sel,D.unw.slice())}
  else if(b.dataset.add!=null){addShow(S.results[+b.dataset.add])}
  else if(b.dataset.act==='back'){set({view:'list',sel:null});scrollTo(0,0)}
  else if(b.dataset.act==='search'){set({view:'search',results:[],msg:'Search Trakt by show title or actor name.'});scrollTo(0,0)}
