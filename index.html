@@ -97,7 +97,7 @@ const set=o=>{Object.assign(S,o);render();};
 const liveC=()=>{try{return JSON.parse(ls.get('live')||'null')}catch(e){return null}};
 function allShows0(){const a=added();const eps=Object.assign({},UP);a.forEach(x=>eps[x.title]=x.eps);
  const P=prog();const now=Date.now();const L=liveC();
- if(L&&L.shows&&L.shows.length){const list=L.shows.map(x=>[x.title,x.unw,x.next||null,x.status==='ended'||x.status==='canceled'?'end':'ret',x.imdb||'',x.id]);
+ if(L&&L.shows&&L.shows.length){const list=L.shows.map(x=>[x.title,x.unw,x.next||null,x.status==='ended'||x.status==='canceled'?'end':'ret',x.imdb||'',x.id,x.tmdb||0]);
   const have=new Set(list.map(x=>x[0].toLowerCase()));
   a.forEach(x=>{if(!have.has(x.title.toLowerCase()))list.push([x.title,P[x.title]!=null?P[x.title]:x.unw,x.eps.length&&x.eps[0].a?x.eps[0].a:null,x.status==='ended'||x.status==='canceled'?'end':'ret'])});
   return{list,eps,a,live:true}}
@@ -111,14 +111,14 @@ function rowsHtml(list){const today=dayNum(new Date());
   if(air){const d=new Date(air),diff=dayNum(d)-today;sort=d.getTime();label=diff<0?'AIRED':diff===0?'TODAY':diff===1?'TOMORROW':diff<=30?diff+' DAYS':md.format(d).toUpperCase();big=diff<=30}
   return{title,unw,label,sort,big,imdb:s[4]||'',key:String(s[5]||title)}});
  rows.sort((a,b)=>(a.sort-b.sort)||(b.unw-a.unw)||(a.title<b.title?-1:1));
- const AR=artMap();
- return{n:rows.length,html:rows.map(r=>{const h=hue(r.title);const g=`linear-gradient(135deg,hsl(${h} 38% 27%),hsl(${h} 40% 8%))`;const im=AR[r.key];const bg=g;const pw=im?Math.round((r.big?160:108)*0.7):0;
-  return `<button class="row" data-open="${esc(r.title)}" aria-label="${esc(r.title+', '+r.label.toLowerCase())}" style="height:${r.big?160:108}px;background:${bg}">${im?`<div aria-hidden="true" style="position:absolute;inset:-20px;background:url(${im}) center/cover;filter:blur(22px) brightness(.6);transform:scale(1.1)"></div>`:''}<div class="ov"></div>${im?`<img src="${im}" alt="" loading="lazy" style="position:absolute;right:0;top:0;height:100%;width:${pw}px;object-fit:cover;object-position:center top">`:''}${r.unw>0?`<div class="bd" style="right:${pw+20}px;font-size:${r.big?38:30}px">${r.unw}</div>`:''}<div class="tx" style="right:${pw+24}px"><div style="font-size:${r.big?50:34}px;line-height:.95">${esc(r.label)}</div><div style="font-size:${r.big?42:28}px;line-height:1;color:#bdbdbd">${esc(r.title.toUpperCase())}</div></div></button>`}).join('')}}
+ const AR=artMap(),BD=bdMap();
+ return{n:rows.length,html:rows.map(r=>{const h=hue(r.title);const g=`linear-gradient(135deg,hsl(${h} 38% 27%),hsl(${h} 40% 8%))`;const im=AR[r.key];const bd=BD[r.key];const bg=bd?`url(${bd}) center 30%/cover no-repeat,${g}`:g;const pw=(im&&!bd)?Math.round((r.big?160:108)*0.7):0;
+  return `<button class="row" data-open="${esc(r.title)}" aria-label="${esc(r.title+', '+r.label.toLowerCase())}" style="height:${r.big?160:108}px;background:${bg}">${(im&&!bd)?`<div aria-hidden="true" style="position:absolute;inset:-20px;background:url(${im}) center/cover;filter:blur(22px) brightness(.6);transform:scale(1.1)"></div>`:''}<div class="ov"></div>${(im&&!bd)?`<img src="${im}" alt="" loading="lazy" style="position:absolute;right:0;top:0;height:100%;width:${pw}px;object-fit:cover;object-position:center top">`:''}${r.unw>0?`<div class="bd" style="right:${pw+20}px;font-size:${r.big?38:30}px">${r.unw}</div>`:''}<div class="tx" style="right:${pw+24}px"><div style="font-size:${r.big?50:34}px;line-height:.95">${esc(r.label)}</div><div style="font-size:${r.big?42:28}px;line-height:1;color:#bdbdbd">${esc(r.title.toUpperCase())}</div></div></button>`}).join('')}}
 function rel(d,dateOnly){const today=dayNum(new Date());const diff=dateOnly?Math.round(Date.UTC(d.getUTCFullYear(),d.getUTCMonth(),d.getUTCDate())/864e5-today):dayNum(d)-today;return diff===0?'TODAY':diff===1?'TOMORROW':diff<0?'AIRED':'IN '+diff+' DAYS'}
 const hdr=(inner)=>`<header class="w" style="display:block;padding:20px 20px 22px"><button class="back" data-act="back">&#8592; Shows</button>${inner}</header>`;
 function render(){const A=allShows();let h='';
  if(S.view==='list'){const r=rowsHtml(A.list);
-  h=`<header class="w"><div style="display:flex;align-items:center;gap:12px"><span style="width:10px;height:10px;border-radius:50%;background:#fff"></span><h1 style="font-size:34px;letter-spacing:.02em">Shows</h1></div><div style="display:flex;align-items:center;gap:10px"><button class="plus${liveBusy?' spin':''}" data-act="refresh" aria-label="Refresh from Trakt" style="font-size:30px;background:#151515;color:#fff;padding:0 0 3px">&#8635;</button><button class="plus" data-act="search" aria-label="Add a show">+</button><div class="pill">${r.n}</div></div></header><main class="w">${r.html}</main><footer class="w sys note">The number on the right is how many aired episodes you haven't watched. Your list, counts and air dates come from Trakt and are re-checked every 15 minutes (tap &#8635; to refresh now). Shows that have ended or been canceled appear only while you still have unwatched episodes. and ended shows you haven't watched in 90 days are left off. Tap a show to see its upcoming and unwatched episodes. Countdowns and air times use Eastern time.${S.liveMsg?' '+S.liveMsg:(S.synced?' Last synced '+tm.format(S.synced)+' ET'+(S.syncFail?' ('+S.syncFail+' shows could not be checked)':'')+'.':(tok()?'':' Connect Trakt (+ button) to load your own list; until then this is a saved snapshot from Nov 25.'))}</footer>`}
+  h=`<header class="w"><div style="display:flex;align-items:center;gap:12px"><span style="width:10px;height:10px;border-radius:50%;background:#fff"></span><h1 style="font-size:34px;letter-spacing:.02em">Shows</h1></div><div style="display:flex;align-items:center;gap:10px"><button class="plus${liveBusy?' spin':''}" data-act="refresh" aria-label="Refresh from Trakt" style="font-size:30px;background:#151515;color:#fff;padding:0 0 3px">&#8635;</button><button class="plus" data-act="search" aria-label="Add a show">+</button><div class="pill">${r.n}</div></div></header><main class="w">${r.html}</main><footer class="w sys note">The number on the right is how many aired episodes you haven't watched. Your list, counts and air dates come from Trakt and are re-checked every 15 minutes (tap &#8635; to refresh now). Shows that have ended or been canceled appear only while you still have unwatched episodes. and ended shows you haven't watched in 90 days are left off. Tap a show to see its upcoming and unwatched episodes. Countdowns and air times use Eastern time. Artwork from TVmaze and TMDB (this product uses the TMDB API but is not endorsed or certified by TMDB).${S.liveMsg?' '+S.liveMsg:(S.synced?' Last synced '+tm.format(S.synced)+' ET'+(S.syncFail?' ('+S.syncFail+' shows could not be checked)':'')+'.':(tok()?'':' Connect Trakt (+ button) to load your own list; until then this is a saved snapshot from Nov 25.'))}</footer>`}
  else if(S.view==='detail'){const list=(S.det[S.sel]&&S.det[S.sel].up)||A.eps[S.sel]||[];const isAdded=A.a.some(x=>x.title===S.sel);
   const eps=list.map(x=>{let date='Date TBA',rl='';if(x.a){const d=new Date(x.a),dO=x.a.indexOf('T00:00:00')>-1;date=dO?wkU.format(d):wk.format(d)+' \u00b7 '+tm.format(d)+' ET';rl=rel(d,dO)}
    return `<article class="ep"><div style="display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:6px 16px"><div style="font-size:34px;line-height:1">S${pad(x.s)}E${pad(x.e)}<span style="color:#bdbdbd"> &middot; ${esc(x.t?x.t.toUpperCase():'TITLE TBA')}</span></div><div style="font-size:26px;line-height:1">${esc(date)}</div></div><div style="margin-top:6px;font-size:20px;line-height:1;color:#8a8a8a">${rl}</div><p class="sys" style="margin:12px 0 0;font-size:15px;line-height:1.5;color:${x.o?'#cfcfcf':'#6f6f6f'}">${esc(x.o||'Description not available yet.')}</p></article>`}).join('');
@@ -135,7 +135,7 @@ function render(){const A=allShows();let h='';
  else{const t=tok();const have=new Set(A.list.map(x=>x[0].toLowerCase()));
   const res=S.results.map((r,i)=>{const dn=have.has(r.title.toLowerCase());const busy=S.adding===r.id;
    return `<article style="padding:18px 0;border-bottom:1px solid #1c1c1c;display:flex;gap:14px;align-items:flex-start"><div style="flex:1;min-width:0"><div style="font-size:32px;line-height:1">${esc(r.title.toUpperCase())}</div><div style="margin-top:6px;font-size:20px;line-height:1;color:#8a8a8a">${esc([r.year,r.network,r.status,r.via].filter(Boolean).join(' \u00b7 ').toUpperCase())}</div><p class="sys" style="margin:10px 0 0;font-size:14px;line-height:1.45;color:#bdbdbd">${esc(r.overview)}</p></div><button class="btn" data-add="${i}" ${dn||busy?'disabled':''}>${dn?'Added':busy?'Adding...':'+ Add'}</button></article>`}).join('');
-  h=hdr(`<h1 style="margin:22px 0 14px;font-size:52px;line-height:.95">Add a show</h1><form id="sf" style="display:flex;gap:10px"><input name="q" type="search" autocomplete="off" placeholder="Show title or actor" class="sys"><button class="btn" style="border-radius:12px;padding:0 22px">Search</button></form><div class="sys" style="margin-top:14px;display:flex;flex-wrap:wrap;align-items:center;gap:10px;font-size:14px;line-height:1.4;color:#9a9a9a"><span>${esc(S.auth||(t?'Trakt connected: added shows also go on your Trakt watchlist.':'Not connected to Trakt: added shows stay on this page only.'))}</span>${!t&&!S.pending?'<button class="ghost" data-act="connect">Connect Trakt</button>':''}${t?'<button class="ghost" data-act="disconnect" style="border-color:#333;color:#bdbdbd">Disconnect</button>':''}</div>`)+`<main class="w sys" style="padding:4px 20px 48px"><p style="margin:20px 0;font-size:15px;line-height:1.5;color:#9a9a9a">${esc(S.msg)}</p>${res}</main>`}
+  h=hdr(`<h1 style="margin:22px 0 14px;font-size:52px;line-height:.95">Add a show</h1><form id="sf" style="display:flex;gap:10px"><input name="q" type="search" autocomplete="off" placeholder="Show title or actor" class="sys"><button class="btn" style="border-radius:12px;padding:0 22px">Search</button></form><div class="sys" style="margin-top:14px;display:flex;flex-wrap:wrap;align-items:center;gap:10px;font-size:14px;line-height:1.4;color:#9a9a9a"><span>${esc(S.auth||(t?'Trakt connected: added shows also go on your Trakt watchlist.':'Not connected to Trakt: added shows stay on this page only.'))}</span>${!t&&!S.pending?'<button class="ghost" data-act="connect">Connect Trakt</button>':''}${t?'<button class="ghost" data-act="disconnect" style="border-color:#333;color:#bdbdbd">Disconnect</button>':''}</div>${tmdbTok()?'<div class="sys" style="margin-top:14px;font-size:14px;color:#9a9a9a">TMDB backdrops on. <button class="ghost" data-act="tmdboff" style="border-color:#333;color:#bdbdbd">Remove token</button></div>':`<form id="tf" style="display:flex;gap:10px;margin-top:14px"><input name="t" type="password" autocomplete="off" placeholder="Paste TMDB read access token" class="sys" style="font-size:14px;padding:10px 12px"><button class="ghost" style="font-size:14px">Save</button></form>`}${S.tmdbMsg?`<div class="sys" style="margin-top:8px;font-size:13px;color:#c98">${esc(S.tmdbMsg)}</div>`:''}`)+`<main class="w sys" style="padding:4px 20px 48px"><p style="margin:20px 0;font-size:15px;line-height:1.5;color:#9a9a9a">${esc(S.msg)}</p>${res}</main>`}
  const keep=document.querySelector('#sf input');const kv=keep?keep.value:'';
  document.getElementById('app').innerHTML=h;const ni=document.querySelector('#sf input');if(ni&&kv)ni.value=kv;}
 async function runSearch(q){const enc=encodeURIComponent(q);
@@ -209,6 +209,20 @@ async function removeShow(t){
  const L=liveC();if(L&&L.shows){L.shows=L.shows.filter(x=>x.title!==t);ls.set('live',JSON.stringify(L))}
  set({view:'list',sel:null,confirmRm:null,rmMsg:''});scrollTo(0,0)}
 const artMap=()=>{try{return JSON.parse(ls.get('art')||'{}')}catch(e){return{}}};
+const bdMap=()=>{try{return JSON.parse(ls.get('bd')||'{}')}catch(e){return{}}};
+const tmdbTok=()=>ls.get('tmdbTok');
+let bdBusy=false;
+async function loadBackdrops(){const tk=tmdbTok();if(!tk||bdBusy)return;bdBusy=true;
+ try{const A=allShows();const M=bdMap();let n=0;const H={Authorization:'Bearer '+tk,accept:'application/json'};
+  for(const x of A.list){const key=String(x[5]||x[0]);if(M[key]!==undefined)continue;
+   try{let path='';
+    if(x[6]){const r=await fx('https://api.themoviedb.org/3/tv/'+x[6],{headers:H});if(r.status===401){ls.del('tmdbTok');S.tmdbMsg='TMDB token was rejected. Paste it again.';break}if(r.ok){const j=await r.json();path=j.backdrop_path||''}else if(r.status!==404)continue}
+    else{const r=await fx('https://api.themoviedb.org/3/search/tv?query='+encodeURIComponent(x[0]),{headers:H});if(r.status===401){ls.del('tmdbTok');S.tmdbMsg='TMDB token was rejected. Paste it again.';break}if(!r.ok)continue;const j=await r.json();const f=(j.results||[]).find(v=>v.backdrop_path&&v.name&&v.name.toLowerCase()===x[0].toLowerCase())||(j.results||[])[0];path=(f&&f.backdrop_path)||''}
+    M[key]=path?'https://image.tmdb.org/t/p/w780'+path:''}catch(e){continue}
+   ls.set('bd',JSON.stringify(M));n++;if(n%4===0&&S.view==='list')render();await sleep(150)}
+  if(S.view==='list'||S.view==='search')render()}
+ catch(e){}
+ bdBusy=false}
 let artBusy=false;
 async function loadArt(){if(artBusy)return;artBusy=true;
  try{const A=allShows();const M=artMap();let n=0;
@@ -241,8 +255,8 @@ async function refreshLive0(force){const t=tok();if(!t){if(force){S.liveMsg='Con
   const calMap={};if(cal)cal.forEach(c=>{if(c.show&&c.show.ids&&c.first_aired)(calMap[c.show.ids.trakt]=calMap[c.show.ids.trakt]||[]).push(new Date(c.first_aired).getTime())});
   const cand=new Map();
   watched.forEach(w=>{const sh=w.show;if(!sh||!sh.ids)return;const ended=sh.status==='ended'||sh.status==='canceled';const age=(now-new Date(w.last_watched_at).getTime())/DAY;
-   if(!ended||age<=90)cand.set(sh.ids.trakt,{title:sh.title,id:sh.ids.trakt,imdb:sh.ids.imdb||'',status:sh.status||'',lw:w.last_watched_at||''})});
-  wl.forEach(w=>{const sh=w.show;if(!sh||!sh.ids)return;const ended=sh.status==='ended'||sh.status==='canceled';if(!ended&&!cand.has(sh.ids.trakt))cand.set(sh.ids.trakt,{title:sh.title,id:sh.ids.trakt,imdb:sh.ids.imdb||'',status:sh.status||'',lw:''})});
+   if(!ended||age<=90)cand.set(sh.ids.trakt,{title:sh.title,id:sh.ids.trakt,imdb:sh.ids.imdb||'',tmdb:sh.ids.tmdb||0,status:sh.status||'',lw:w.last_watched_at||''})});
+  wl.forEach(w=>{const sh=w.show;if(!sh||!sh.ids)return;const ended=sh.status==='ended'||sh.status==='canceled';if(!ended&&!cand.has(sh.ids.trakt))cand.set(sh.ids.trakt,{title:sh.title,id:sh.ids.trakt,imdb:sh.ids.imdb||'',tmdb:sh.ids.tmdb||0,status:sh.status||'',lw:''})});
   const items=[...cand.values()];let i=0,fail=0,calls=0;const out=[];
   async function w(){while(i<items.length){const it=items[i++];const p=prev[it.id];await sleep(120);
    try{const cl=calMap[it.id]||[];const fut=cl.filter(x=>x>now).sort((a,b)=>a-b)[0];
@@ -258,12 +272,12 @@ async function refreshLive0(force){const t=tok();if(!t){if(force){S.liveMsg='Con
      if(nr.status===200){const ne=await nr.json();if(ne&&ne.first_aired&&new Date(ne.first_aired).getTime()>now)next=ne.first_aired}nt=now}
     const ended=it.status==='ended'||it.status==='canceled';
     if(ended&&unw===0)continue;
-    out.push({title:it.title,id:it.id,imdb:it.imdb,status:it.status,unw,next,nt,lw:it.lw,t:stale?now:(p.t||now)})}catch(e){fail++;if(p)out.push(p)}}}
+    out.push({title:it.title,id:it.id,imdb:it.imdb,tmdb:it.tmdb,status:it.status,unw,next,nt,lw:it.lw,t:stale?now:(p.t||now)})}catch(e){fail++;if(p)out.push(p)}}}
   await Promise.all([w(),w()]);
   if(out.length){ls.set('live',JSON.stringify({t:now,shows:out}));const P={};out.forEach(x=>P[x.title]=x.unw);ls.set('prog',JSON.stringify(P))}
   S.synced=new Date();S.syncFail=fail;S.syncCalls=calls;S.liveMsg=''}
  catch(e){S.liveMsg='Could not update from Trakt ('+(e.message||'error')+'). Showing the last saved list.'}
- liveBusy=false;if(S.view==='list')render();loadArt()}
+ liveBusy=false;if(S.view==='list')render();loadArt();loadBackdrops()}
 let refreshing=false;
 async function refreshProgress(){const t=tok();if(!t||refreshing)return;refreshing=true;
  const A=allShows();const items=A.list.map(x=>x[0]).map(n=>({n,id:IDS[n]||(A.a.find(a=>a.title===n)||{}).id})).filter(x=>x.id);
@@ -282,13 +296,15 @@ document.addEventListener('click',e=>{const b=e.target.closest('button');if(!b)r
  else if(b.dataset.act==='back'){set({view:'list',sel:null});scrollTo(0,0)}
  else if(b.dataset.act==='search'){set({view:'search',results:[],msg:'Search Trakt by show title or actor name.'});scrollTo(0,0)}
  else if(b.dataset.act==='refresh'){try{Object.keys(localStorage).filter(k=>k.indexOf('det_')===0).forEach(k=>localStorage.removeItem(k))}catch(e){}refreshLive('full')}
+ else if(b.dataset.act==='tmdboff'){ls.del('tmdbTok');ls.del('bd');set({tmdbMsg:''})}
  else if(b.dataset.act==='retry'){loadDetail(S.sel)}
  else if(b.dataset.act==='remove'){removeShow(S.sel)}
  else if(b.dataset.act==='connect'){connect()}
  else if(b.dataset.act==='disconnect'){ls.del('traktTok');set({auth:''})}});
-document.addEventListener('submit',e=>{if(e.target.id!=='sf')return;e.preventDefault();const q=e.target.elements.q.value.trim();if(!q)return;set({msg:'Searching...',results:[]});runSearch(q)});
+document.addEventListener('submit',e=>{if(e.target.id==='tf'){e.preventDefault();const v=e.target.elements.t.value.trim();if(v){ls.set('tmdbTok',v);S.tmdbMsg='';render();loadBackdrops()}return}
+ if(e.target.id!=='sf')return;e.preventDefault();const q=e.target.elements.q.value.trim();if(!q)return;set({msg:'Searching...',results:[]});runSearch(q)});
 render();
 refreshLive(false);
-loadArt();
+loadArt();loadBackdrops();
 document.addEventListener('visibilitychange',()=>{if(!document.hidden)refreshLive(false)});
 </script></body></html>
