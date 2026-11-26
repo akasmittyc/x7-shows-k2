@@ -16,6 +16,7 @@
 body{margin:0;padding-top:env(safe-area-inset-top);padding-bottom:env(safe-area-inset-bottom);background:#000;color:#fff;font-family:'Bebas Neue','Arial Narrow',sans-serif}
 @keyframes sp{to{transform:rotate(360deg)}}
 .spin{animation:sp .9s linear infinite}
+.seg{border:0;background:transparent;color:#666;font-size:34px;letter-spacing:.02em;padding:4px 8px;line-height:1}.seg.on{color:#fff}
 button{font:inherit;color:inherit;cursor:pointer}
 .w{max-width:760px;margin:0 auto}
 header.w{padding:28px 20px 20px;display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px;border-bottom:1px solid #1c1c1c}
@@ -95,7 +96,7 @@ const ls={get:k=>{try{return localStorage.getItem(k)}catch(e){return null}},set:
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));
 async function fx(url,o,n){n=n||5;const D=[2000,5000,10000,15000];for(let k=0;k<n;k++){try{const r=await fetch(url,o);if((r.status===429||r.status===420||r.status>=500)&&k<n-1){const ra=+r.headers.get('Retry-After')||0;await sleep(Math.max(ra*1000,D[k]));continue}return r}catch(e){if(k===n-1)throw e;await sleep(D[k])}}}
 const prog=()=>{try{return JSON.parse(ls.get('prog')||'{}')}catch(e){return{}}};
-let S={det:{},view:'list',sel:null,results:[],msg:'Search Trakt by show title or actor name.',auth:'',pending:false,adding:null};
+let S={mode:(ls.get('mode')==='movies'?'movies':'shows'),det:{},view:'list',sel:null,results:[],msg:'Search Trakt by show, movie or actor name.',auth:'',pending:false,adding:null};
 const added=()=>{try{return JSON.parse(ls.get('addedShows')||'[]')}catch(e){return[]}};
 const saveAdded=l=>ls.set('addedShows',JSON.stringify(l));
 const tok=()=>ls.get('traktTok');
@@ -103,6 +104,21 @@ async function tj(p){const r=await fx('https://api.trakt.tv'+p,{headers:{'trakt-
 async function tpost(p,b,t){const h={'Content-Type':'application/json','trakt-api-version':'2','trakt-api-key':KEY};if(t)h.Authorization='Bearer '+t;const r=await fetch('https://api.trakt.tv'+p,{method:'POST',headers:h,body:JSON.stringify(b)});let j=null;try{j=await r.json()}catch(e){}return{status:r.status,body:j}}
 const set=o=>{Object.assign(S,o);render();};
 const liveC=()=>{try{return JSON.parse(ls.get('live')||'null')}catch(e){return null}};
+const liveM=()=>{try{return JSON.parse(ls.get('liveM')||'null')}catch(e){return null}};
+const movList=()=>((liveM()||{}).movies||[]);
+const mdU=new Intl.DateTimeFormat('en-US',{timeZone:'UTC',month:'short',day:'numeric'});
+const mdUY=new Intl.DateTimeFormat('en-US',{timeZone:'UTC',month:'short',day:'numeric',year:'numeric'});
+const mDate=d=>{const p=d.split('-').map(Number);return new Date(Date.UTC(p[0],p[1]-1,p[2]))};
+const mDiff=d=>{const p=d.split('-').map(Number);return Date.UTC(p[0],p[1]-1,p[2])/864e5-dayNum(new Date())};
+function movieRowsHtml(){const BD=bdMap();
+ const rows=movList().map(m=>{let label='TBA',sort=1e9,big=false;
+  if(m.released){const df=mDiff(m.released);
+   if(df<0){label='RELEASED';sort=10000+(-df)}
+   else{label=df===0?'TODAY':df===1?'TOMORROW':df<=30?df+' DAYS':(df>300?mdUY:mdU).format(mDate(m.released)).toUpperCase();sort=df;big=df<=30}}
+  return{m,label,sort,big}});
+ rows.sort((a,b)=>(a.sort-b.sort)||(a.m.title<b.m.title?-1:1));
+ return{n:rows.length,html:rows.map(r=>{const h=hue(r.m.title);const g=`linear-gradient(135deg,hsl(${h} 38% 27%),hsl(${h} 40% 8%))`;const bd=BD['m'+r.m.id];const bg=bd?`url(${bd}) center 30%/cover no-repeat,${g}`:g;
+  return `<button class="row" data-mopen="${r.m.id}" aria-label="${esc(r.m.title+', '+r.label.toLowerCase())}" style="height:${r.big?160:108}px;background:${bg}"><div class="ov"></div><div class="tx"><div style="font-size:${r.big?50:34}px;line-height:.95">${esc(r.label)}</div><div style="font-size:${r.big?42:28}px;line-height:1;color:#bdbdbd">${esc(r.m.title.toUpperCase())}${r.m.year?' <span style="font-size:.6em;color:#8a8a8a">'+r.m.year+'</span>':''}</div></div></button>`}).join('')}}
 function allShows0(){const a=added();const eps=Object.assign({},UP);a.forEach(x=>eps[x.title]=x.eps);
  const P=prog();const now=Date.now();const L=liveC();
  if(L&&L.shows&&L.shows.length){const list=L.shows.map(x=>[x.title,x.unw,x.next||null,x.status==='ended'||x.status==='canceled'?'end':'ret',x.imdb||'',x.id,x.tmdb||0]);
@@ -141,8 +157,13 @@ function rowsHtml(list){const today=dayNum(new Date());
 function rel(d,dateOnly){const today=dayNum(new Date());const diff=dateOnly?Math.round(Date.UTC(d.getUTCFullYear(),d.getUTCMonth(),d.getUTCDate())/864e5-today):dayNum(d)-today;return diff===0?'TODAY':diff===1?'TOMORROW':diff<0?'AIRED':'IN '+diff+' DAYS'}
 const hdr=(inner)=>`<header class="w" style="display:block;padding:20px 20px 22px"><button class="back" data-act="back">&#8592; Shows</button>${inner}</header>`;
 function render(){const A=allShows();let h='';
- if(S.view==='list'){const r=rowsHtml(A.list);
-  h=`<header class="w"><div style="display:flex;align-items:center;gap:12px"><span style="width:10px;height:10px;border-radius:50%;background:#fff"></span><h1 style="font-size:34px;letter-spacing:.02em">Shows</h1></div><div style="display:flex;align-items:center;gap:10px"><button class="plus${liveBusy?' spin':''}" data-act="refresh" aria-label="Refresh from Trakt" style="font-size:30px;background:#151515;color:#fff;padding:0 0 3px">&#8635;</button><button class="plus" data-act="search" aria-label="Add a show">+</button><div class="pill">${r.n}</div></div></header><main class="w">${r.html}</main><footer class="w sys note">The number on the right is how many aired episodes you haven't watched. Your list, counts and air dates come from Trakt and are re-checked every 15 minutes (tap &#8635; to refresh now). Shows that have ended or been canceled appear only while you still have unwatched episodes. and ended shows you haven't watched in 90 days are left off. Tap a show to see its upcoming and unwatched episodes. Countdowns and air times use Eastern time. Artwork from TVmaze and TMDB (this product uses the TMDB API but is not endorsed or certified by TMDB).${S.liveMsg?' '+S.liveMsg:(S.synced?' Last synced '+tm.format(S.synced)+' ET'+(S.syncFail?' ('+S.syncFail+' shows could not be checked)':'')+'.':(tok()?'':' Connect Trakt (+ button) to load your own list; until then this is a saved snapshot from Nov 25.'))}</footer>`}
+ if(S.view==='list'){const isM=S.mode==='movies';const r=isM?movieRowsHtml():rowsHtml(A.list);const mEmpty=isM&&!r.n?`<p class="sys" style="margin:28px 24px;font-size:15px;color:#9a9a9a">${tok()?(movBusy?'Loading your movie watchlist...':'No movies on your Trakt watchlist yet. Tap + to add one.'):'Connect Trakt (+ button) to load your movie watchlist.'}</p>`:'';
+  h=`<header class="w"><div style="display:flex;align-items:center;gap:12px"><span style="width:10px;height:10px;border-radius:50%;background:#fff"></span><h1 style="display:flex;gap:4px;font-size:34px;letter-spacing:.02em"><button class="seg${S.mode==='shows'?' on':''}" data-mode="shows">Shows</button><button class="seg${S.mode==='movies'?' on':''}" data-mode="movies">Movies</button></h1></div><div style="display:flex;align-items:center;gap:10px"><button class="plus${(liveBusy||movBusy)?' spin':''}" data-act="refresh" aria-label="Refresh from Trakt" style="font-size:30px;background:#151515;color:#fff;padding:0 0 3px">&#8635;</button><button class="plus" data-act="search" aria-label="Add a show or movie">+</button><div class="pill">${r.n}</div></div></header><main class="w">${r.html}${mEmpty}</main><footer class="w sys note">${isM?'Movies on your Trakt watchlist. Countdowns use the theatrical release date. Tap a movie for details, to mark it watched or to remove it from your watchlist. Backdrops need the TMDB token on the Add screen.'+(S.mMsg?' '+S.mMsg:''):''}${isM?'':`The number on the right is how many aired episodes you haven't watched. Your list, counts and air dates come from Trakt and are re-checked every 15 minutes (tap &#8635; to refresh now). Shows that have ended or been canceled appear only while you still have unwatched episodes, and ended shows you haven't watched in 90 days are left off. Tap a show to see its upcoming and unwatched episodes. Countdowns and air times use Eastern time. Artwork from TVmaze and TMDB (this product uses the TMDB API but is not endorsed or certified by TMDB).${S.liveMsg?' '+S.liveMsg:(S.synced?' Last synced '+tm.format(S.synced)+' ET'+(S.syncFail?' ('+S.syncFail+' shows could not be checked)':'')+'.':(tok()?'':' Connect Trakt (+ button) to load your own list; until then this is a saved snapshot from Nov 25.'))}`}</footer>`}
+ else if(S.view==='mdetail'){const m=movList().find(x=>x.id===S.msel);
+  if(!m){h=hdr('<p class="sys" style="margin-top:24px;color:#9a9a9a">That movie is no longer on your list.</p>')}
+  else{let rl='RELEASE DATE TBA';if(m.released){const df=mDiff(m.released);rl=(df<0?'RELEASED ':'RELEASES ')+wkU.format(mDate(m.released)).toUpperCase()+(df>=0?' \u00b7 '+(df===0?'TODAY':df===1?'TOMORROW':'IN '+df+' DAYS'):'')}
+   const meta=[m.year,m.runtime?m.runtime+' MIN':'',m.cert,m.rating?'\u2605 '+Number(m.rating).toFixed(1):'',(m.genres||[]).slice(0,2).join(' / ')].filter(Boolean).join(' \u00b7 ').toUpperCase();
+   h=hdr(`<h1 style="margin:22px 0 6px;font-size:52px;line-height:.95">${esc(m.title.toUpperCase())}</h1><div style="font-size:24px;line-height:1;color:#9a9a9a">${esc(rl)}</div><div style="margin-top:8px;font-size:20px;line-height:1;color:#8a8a8a">${esc(meta)}</div><div style="margin-top:18px;display:flex;flex-wrap:wrap;gap:10px"><button class="btn" data-act="mwatch" ${S.mBusy?'disabled':''}>${S.mBusy==='watch'?'Sending to Trakt...':'Mark watched'}</button><button class="ghost" data-act="mremove" ${S.mBusy?'disabled':''} style="font-size:20px;color:#bdbdbd">${S.confirmRm==='m'+m.id?'Tap again to remove':'Remove from list'}</button></div>${S.mdMsg?`<p class="sys" style="margin:12px 0 0;font-size:14px;color:#c98">${esc(S.mdMsg)}</p>`:''}`)+`<main class="w sys" style="padding:20px 20px 48px">${m.tagline?`<p style="margin:0 0 14px;font-size:16px;font-style:italic;color:#9a9a9a">${esc(m.tagline)}</p>`:''}<p style="margin:0;font-size:15px;line-height:1.6;color:${m.overview?'#cfcfcf':'#6f6f6f'}">${esc(m.overview||'Description not available yet.')}</p></main>`}}
  else if(S.view==='detail'){const list=(S.det[S.sel]&&S.det[S.sel].up)||A.eps[S.sel]||[];const isAdded=A.a.some(x=>x.title===S.sel);
   const eps=list.map(x=>{let date='Date TBA',rl='';if(x.a){const d=new Date(x.a),dO=x.a.indexOf('T00:00:00')>-1;date=dO?wkU.format(d):wk.format(d)+' \u00b7 '+tm.format(d)+' ET';rl=rel(d,dO)}
    return `<article class="ep"><div style="display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:6px 16px"><div style="font-size:34px;line-height:1">S${pad(x.s)}E${pad(x.e)}<span style="color:#bdbdbd"> &middot; ${esc(x.t?x.t.toUpperCase():'TITLE TBA')}</span></div><div style="font-size:26px;line-height:1">${esc(date)}</div></div><div style="margin-top:6px;font-size:20px;line-height:1;color:#8a8a8a">${rl}</div><p class="sys" style="margin:12px 0 0;font-size:15px;line-height:1.5;color:${x.o?'#cfcfcf':'#6f6f6f'}">${esc(x.o||'Description not available yet.')}</p></article>`}).join('');
@@ -157,18 +178,35 @@ function render(){const A=allShows();let h='';
   if(D&&D.msg)unwHtml=`<p class="sys" style="margin:16px 0 0;font-size:14px;color:#9a9a9a">${esc(D.msg)}</p>`+unwHtml;
   h=hdr(`<h1 style="margin:22px 0 6px;font-size:52px;line-height:.95">${esc(S.sel.toUpperCase())}</h1><div style="font-size:24px;line-height:1;color:#9a9a9a">${list.length?list.length+(list.length===1?' UPCOMING EPISODE':' UPCOMING EPISODES'):'NOTHING ANNOUNCED'}</div><button class="ghost" data-act="remove" style="margin-top:18px;font-size:20px;color:#bdbdbd">${S.confirmRm===S.sel?'Tap again to remove':'Remove from list'}</button>${S.rmMsg?`<p class="sys" style="margin:12px 0 0;font-size:14px;color:#c98">${esc(S.rmMsg)}</p>`:''}`)+`<main class="w" style="padding:8px 20px 48px">${unwHtml}${list.length?sec('UPCOMING'):''}${list.length?'':'<p class="sys" style="margin:28px 0;font-size:15px;color:#9a9a9a">No upcoming episodes announced on Trakt yet.</p>'}${eps}</main>`}
  else{const t=tok();const have=new Set(A.list.map(x=>x[0].toLowerCase()));
-  const res=S.results.map((r,i)=>{const dn=have.has(r.title.toLowerCase());const busy=S.adding===r.id;
-   return `<article style="padding:18px 0;border-bottom:1px solid #1c1c1c;display:flex;gap:14px;align-items:flex-start"><div style="flex:1;min-width:0"><div style="font-size:32px;line-height:1">${esc(r.title.toUpperCase())}</div><div style="margin-top:6px;font-size:20px;line-height:1;color:#8a8a8a">${esc([r.year,r.network,r.status,r.via].filter(Boolean).join(' \u00b7 ').toUpperCase())}</div><p class="sys" style="margin:10px 0 0;font-size:14px;line-height:1.45;color:#bdbdbd">${esc(r.overview)}</p></div><button class="btn" data-add="${i}" ${dn||busy?'disabled':''}>${dn?'Added':busy?'Adding...':'+ Add'}</button></article>`}).join('');
-  h=hdr(`<h1 style="margin:22px 0 14px;font-size:52px;line-height:.95">Add a show</h1><form id="sf" style="display:flex;gap:10px"><input name="q" type="search" autocomplete="off" placeholder="Show title or actor" class="sys"><button class="btn" style="border-radius:12px;padding:0 22px">Search</button></form><div class="sys" style="margin-top:14px;display:flex;flex-wrap:wrap;align-items:center;gap:10px;font-size:14px;line-height:1.4;color:#9a9a9a"><span>${esc(S.auth||(t?'Trakt connected: added shows also go on your Trakt watchlist.':'Not connected to Trakt: added shows stay on this page only.'))}</span>${!t&&!S.pending?'<button class="ghost" data-act="connect">Connect Trakt</button>':''}${t?'<button class="ghost" data-act="disconnect" style="border-color:#333;color:#bdbdbd">Disconnect</button>':''}</div>${tmdbTok()?'<div class="sys" style="margin-top:14px;font-size:14px;color:#9a9a9a">TMDB backdrops on. <button class="ghost" data-act="tmdboff" style="border-color:#333;color:#bdbdbd">Remove token</button></div>':`<form id="tf" style="display:flex;gap:10px;margin-top:14px"><input name="t" type="password" autocomplete="off" placeholder="Paste TMDB read access token" class="sys" style="font-size:14px;padding:10px 12px"><button class="ghost" style="font-size:14px">Save</button></form>`}${S.tmdbMsg?`<div class="sys" style="margin-top:8px;font-size:13px;color:#c98">${esc(S.tmdbMsg)}</div>`:''}`)+`<main class="w sys" style="padding:4px 20px 48px"><p style="margin:20px 0;font-size:15px;line-height:1.5;color:#9a9a9a">${esc(S.msg)}</p>${res}</main>`}
+  const res=S.results.map((r,i)=>{const dn=r.kind==='movie'?movList().some(x=>x.id===r.id):have.has(r.title.toLowerCase());const busy=S.adding===r.id;
+   return `<article style="padding:18px 0;border-bottom:1px solid #1c1c1c;display:flex;gap:14px;align-items:flex-start"><div style="flex:1;min-width:0"><div style="font-size:32px;line-height:1">${esc(r.title.toUpperCase())}</div><div style="margin-top:6px;font-size:20px;line-height:1;color:#8a8a8a">${esc([r.kind==='movie'?'Movie':'Show',r.year,r.network,r.status,r.via].filter(Boolean).join(' \u00b7 ').toUpperCase())}</div><p class="sys" style="margin:10px 0 0;font-size:14px;line-height:1.45;color:#bdbdbd">${esc(r.overview)}</p></div><button class="btn" data-add="${i}" ${dn||busy?'disabled':''}>${dn?'Added':busy?'Adding...':'+ Add'}</button></article>`}).join('');
+  h=hdr(`<h1 style="margin:22px 0 14px;font-size:52px;line-height:.95">Add a show or movie</h1><form id="sf" style="display:flex;gap:10px"><input name="q" type="search" autocomplete="off" placeholder="Show, movie or actor" class="sys"><button class="btn" style="border-radius:12px;padding:0 22px">Search</button></form><div class="sys" style="margin-top:14px;display:flex;flex-wrap:wrap;align-items:center;gap:10px;font-size:14px;line-height:1.4;color:#9a9a9a"><span>${esc(S.auth||(t?'Trakt connected: added shows and movies also go on your Trakt watchlist.':'Not connected to Trakt: shows stay on this page only, and movies need Trakt.'))}</span>${!t&&!S.pending?'<button class="ghost" data-act="connect">Connect Trakt</button>':''}${t?'<button class="ghost" data-act="disconnect" style="border-color:#333;color:#bdbdbd">Disconnect</button>':''}</div>${tmdbTok()?'<div class="sys" style="margin-top:14px;font-size:14px;color:#9a9a9a">TMDB backdrops on. <button class="ghost" data-act="tmdboff" style="border-color:#333;color:#bdbdbd">Remove token</button></div>':`<form id="tf" style="display:flex;gap:10px;margin-top:14px"><input name="t" type="password" autocomplete="off" placeholder="Paste TMDB read access token" class="sys" style="font-size:14px;padding:10px 12px"><button class="ghost" style="font-size:14px">Save</button></form>`}${S.tmdbMsg?`<div class="sys" style="margin-top:8px;font-size:13px;color:#c98">${esc(S.tmdbMsg)}</div>`:''}`)+`<main class="w sys" style="padding:4px 20px 48px"><p style="margin:20px 0;font-size:15px;line-height:1.5;color:#9a9a9a">${esc(S.msg)}</p>${res}</main>`}
  const keep=document.querySelector('#sf input');const kv=keep?keep.value:'';
  document.getElementById('app').innerHTML=h;const ni=document.querySelector('#sf input');if(ni&&kv)ni.value=kv;}
 async function runSearch(q){const enc=encodeURIComponent(q);
- try{const [bt,pp]=await Promise.all([tj('/search/show?extended=full&limit=8&query='+enc),tj('/search/person?limit=2&query='+enc).catch(()=>[])]);
-  const out=[],seen=new Set();const push=(sh,via)=>{if(!sh||!sh.ids||seen.has(sh.ids.trakt))return;seen.add(sh.ids.trakt);const o=sh.overview||'';out.push({id:sh.ids.trakt,title:sh.title,year:sh.year?''+sh.year:'',network:sh.network||'',status:sh.status||'',overview:o.length>200?o.slice(0,197).replace(/\s+\S*$/,'')+'...':o,via:via||''})};
-  bt.forEach(x=>push(x.show));const p=pp&&pp[0]&&pp[0].person;
-  if(p&&p.ids){try{const c=await tj('/people/'+p.ids.trakt+'/shows?extended=full');(c.cast||[]).filter(x=>x.show&&x.show.votes>500).sort((a,b)=>b.show.votes-a.show.votes).slice(0,8).forEach(x=>push(x.show,'with '+p.name))}catch(e){}}
-  set({results:out,msg:out.length?'Tap + Add to put a show on your list.':'No shows found for "'+q+'".'})}
+ try{const [bt,pp]=await Promise.all([tj('/search/show,movie?extended=full&limit=10&query='+enc),tj('/search/person?limit=2&query='+enc).catch(()=>[])]);
+  const out=[],seen=new Set();const cut=o=>o.length>200?o.slice(0,197).replace(/\s+\S*$/,'')+'...':o;
+  const push=(sh,kind,via)=>{if(!sh||!sh.ids)return;const k=kind+sh.ids.trakt;if(seen.has(k))return;seen.add(k);
+   out.push({kind,id:sh.ids.trakt,title:sh.title,year:sh.year?''+sh.year:'',network:sh.network||'',status:kind==='show'?(sh.status||''):'',overview:cut(sh.overview||''),via:via||'',
+    imdb:sh.ids.imdb||'',tmdb:sh.ids.tmdb||0,released:sh.released||'',runtime:sh.runtime||0,rating:sh.rating||0,cert:sh.certification||'',tagline:sh.tagline||'',genres:sh.genres||[],fullOverview:sh.overview||''})};
+  bt.forEach(x=>{if(x.type==='movie')push(x.movie,'movie');else if(x.show)push(x.show,'show')});
+  const p=pp&&pp[0]&&pp[0].person;
+  if(p&&p.ids){
+   try{const c=await tj('/people/'+p.ids.trakt+'/shows?extended=full');(c.cast||[]).filter(x=>x.show&&x.show.votes>500).sort((a,b)=>b.show.votes-a.show.votes).slice(0,6).forEach(x=>push(x.show,'show','with '+p.name))}catch(e){}
+   try{const c=await tj('/people/'+p.ids.trakt+'/movies?extended=full');(c.cast||[]).filter(x=>x.movie&&x.movie.votes>1000).sort((a,b)=>b.movie.votes-a.movie.votes).slice(0,6).forEach(x=>push(x.movie,'movie','with '+p.name))}catch(e){}}
+  set({results:out,msg:out.length?'Tap + Add to put it on your list.':'Nothing found for "'+q+'".'})}
  catch(e){set({msg:'Could not reach Trakt ('+(e.message||'error')+').'})}}
+async function addMovie(r){const tk=tok();
+ if(!tk){set({msg:'Connect Trakt first (button above) to add movies.'});return}
+ set({adding:r.id});
+ try{const w=await tpost('/sync/watchlist',{movies:[{ids:{trakt:r.id}}]},tk);
+  if(w.status===401){ls.del('traktTok');throw new Error('login expired, reconnect')}
+  if(w.status>=300)throw new Error('Trakt returned HTTP '+w.status);
+  const L=liveM()||{t:Date.now(),movies:[]};L.movies=L.movies.filter(x=>x.id!==r.id);
+  L.movies.push({id:r.id,title:r.title,year:r.year,imdb:r.imdb,tmdb:r.tmdb,released:r.released,runtime:r.runtime,rating:r.rating,cert:r.cert,tagline:r.tagline,overview:r.fullOverview,genres:r.genres});
+  ls.set('liveM',JSON.stringify(L));ls.set('mode','movies');
+  set({adding:null,view:'list',mode:'movies'});scrollTo(0,0);loadBackdrops()}
+ catch(e){set({adding:null,msg:'Could not add that movie ('+(e.message||'error')+').'})}}
 async function addShow(r){set({adding:r.id});
  try{const data=await tj('/shows/'+r.id+'/seasons?extended=episodes,full');const now=Date.now();let unw=0;const eps=[];const top=Math.max(0,...data.filter(x=>x.number>0).map(x=>x.number));
   data.forEach(sn=>{if(sn.number===0)return;(sn.episodes||[]).forEach(e=>{const fa=e.first_aired;if(fa&&new Date(fa).getTime()<=now){unw++;return}if(!fa&&sn.number!==top)return;const ov=(e.overview||'').trim();let t=e.title||'';if(/^episode \d+$/i.test(t)||t==='TBA')t='';eps.push({s:sn.number,e:e.number,t,a:fa||null,o:ov.length>260?ov.slice(0,257).replace(/\s+\S*$/,'')+'...':ov})})});
@@ -176,7 +214,7 @@ async function addShow(r){set({adding:r.id});
   ls.set('hidden',JSON.stringify(hiddenL().filter(x=>x!==r.title.toLowerCase())));await unhideRemote(r.id);const l=added().filter(a=>a.id!==r.id);l.push({id:r.id,title:r.title,status:r.status,unw,eps:eps.slice(0,14)});saveAdded(l);
   const t=tok();let wmsg='';
   if(t){try{const w=await tpost('/sync/watchlist',{shows:[{ids:{trakt:r.id}}]},t);if(w.status===401){ls.del('traktTok')}if(w.status>=300){set({adding:null,view:'search',auth:'Added here, but Trakt watchlist failed (HTTP '+w.status+(w.status===401?', please reconnect':'')+').'});return}}catch(e){set({adding:null,view:'search',auth:'Added here, but Trakt watchlist failed ('+(e.message||'error')+').'});return}}
-  set({adding:null,view:'list',auth:''});restoreY()}
+  ls.set('mode','shows');set({adding:null,view:'list',auth:'',mode:'shows'});restoreY()}
  catch(e){set({adding:null,msg:'Could not add that show ('+(e.message||'error')+').'})}}
 async function connect(){try{set({pending:true,auth:'Contacting Trakt...'});const dc=await tpost('/oauth/device/code',{client_id:KEY});if(dc.status!==200)throw new Error('code request HTTP '+dc.status);const d=dc.body;
   const url=d.verification_url+'?code='+d.user_code;window.open(url,'_blank');
@@ -245,6 +283,12 @@ async function loadBackdrops(){const tk=tmdbTok();if(!tk||bdBusy)return;bdBusy=t
     else{const r=await fx('https://api.themoviedb.org/3/search/tv?query='+encodeURIComponent(x[0]),{headers:H});if(r.status===401){ls.del('tmdbTok');S.tmdbMsg='TMDB token was rejected. Paste it again.';break}if(!r.ok)continue;const j=await r.json();const f=(j.results||[]).find(v=>v.backdrop_path&&v.name&&v.name.toLowerCase()===x[0].toLowerCase())||(j.results||[])[0];path=(f&&f.backdrop_path)||''}
     M[key]=path?'https://image.tmdb.org/t/p/w780'+path:''}catch(e){continue}
    ls.set('bd',JSON.stringify(M));n++;if(n%4===0&&S.view==='list')render();await sleep(150)}
+  for(const m of movList()){const key='m'+m.id;if(M[key]!==undefined)continue;
+   try{let path='';
+    if(m.tmdb){const r=await fx('https://api.themoviedb.org/3/movie/'+m.tmdb,{headers:H});if(r.status===401){ls.del('tmdbTok');break}if(r.ok){const j=await r.json();path=j.backdrop_path||''}else if(r.status!==404)continue}
+    else{const r=await fx('https://api.themoviedb.org/3/search/movie?query='+encodeURIComponent(m.title)+(m.year?'&year='+m.year:''),{headers:H});if(!r.ok)continue;const j=await r.json();const f=(j.results||[])[0];path=(f&&f.backdrop_path)||''}
+    M[key]=path?'https://image.tmdb.org/t/p/w780'+path:''}catch(e){continue}
+   ls.set('bd',JSON.stringify(M));n++;if(n%4===0&&S.view==='list')render();await sleep(150)}
   if(S.view==='list'||S.view==='search')render()}
  catch(e){}
  bdBusy=false}
@@ -262,6 +306,36 @@ async function loadArt(){if(artBusy)return;artBusy=true;
  catch(e){}
  artBusy=false}
 let savedY=0;const restoreY=()=>{try{scrollTo(0,savedY)}catch(e){}};
+let movBusy=false;
+async function refreshMovies(force){const t=tok();if(!t||movBusy)return;const L0=liveM();
+ if(!force&&L0&&L0.t&&Date.now()-L0.t<300000)return;
+ movBusy=true;if(S.view==='list')render();
+ try{const r=await fx('https://api.trakt.tv/sync/watchlist/movies?extended=full',{headers:{'trakt-api-version':'2','trakt-api-key':KEY,Authorization:'Bearer '+t}});
+  if(r.status===401){ls.del('traktTok');throw new Error('login expired, reconnect with +')}
+  if(!r.ok)throw new Error('HTTP '+r.status);
+  const j=await r.json();
+  const movies=(j||[]).map(w=>w.movie).filter(m=>m&&m.ids).map(m=>({id:m.ids.trakt,title:m.title,year:m.year?''+m.year:'',imdb:m.ids.imdb||'',tmdb:m.ids.tmdb||0,released:m.released||'',runtime:m.runtime||0,rating:m.rating||0,cert:m.certification||'',tagline:m.tagline||'',overview:m.overview||'',genres:m.genres||[]}));
+  ls.set('liveM',JSON.stringify({t:Date.now(),movies}));S.mMsg=''}
+ catch(e){S.mMsg='Could not load movies from Trakt ('+(e.message||'error')+'). Showing the last saved list.'}
+ movBusy=false;if(S.view==='list'||S.view==='mdetail')render();loadBackdrops()}
+async function markMovie(id){const tk=tok(),m=movList().find(x=>x.id===id);if(!tk||!m||S.mBusy)return;
+ S.mBusy='watch';S.mdMsg='';render();
+ try{const r=await tpost('/sync/history',{movies:[{ids:{trakt:id}}]},tk);
+  if(r.status===401){ls.del('traktTok');throw new Error('login expired, reconnect')}
+  if(r.status>=300)throw new Error('Trakt returned HTTP '+r.status);
+  const L=liveM();L.movies=L.movies.filter(x=>x.id!==id);ls.set('liveM',JSON.stringify(L));
+  S.mBusy=null;set({view:'list',msel:null,mMsg:'Marked "'+m.title+'" as watched on Trakt.'});restoreY()}
+ catch(e){S.mBusy=null;set({mdMsg:'Could not mark it watched ('+(e.message||'error')+').'})}}
+async function removeMovie(id){const tk=tok(),m=movList().find(x=>x.id===id);if(!m||S.mBusy)return;
+ if(S.confirmRm!=='m'+id){set({confirmRm:'m'+id,mdMsg:''});return}
+ if(!tk){set({confirmRm:null,mdMsg:'Connect Trakt first to remove movies.'});return}
+ S.mBusy='rm';render();
+ try{const r=await tpost('/sync/watchlist/remove',{movies:[{ids:{trakt:id}}]},tk);
+  if(r.status===401){ls.del('traktTok');throw new Error('login expired, reconnect')}
+  if(r.status>=300)throw new Error('Trakt returned HTTP '+r.status);
+  const L=liveM();L.movies=L.movies.filter(x=>x.id!==id);ls.set('liveM',JSON.stringify(L));
+  S.mBusy=null;set({view:'list',msel:null,confirmRm:null,mMsg:''});restoreY()}
+ catch(e){S.mBusy=null;set({confirmRm:null,mdMsg:'Could not remove it on Trakt ('+(e.message||'error')+'). Nothing was changed.'})}}
 let liveBusy=false,liveP=null;
 const LIVE_TTL=15*60000,DET_TTL=60*60000,NEXT_TTL=24*3600000;
 function refreshLive(force){const p=refreshLive0(force);liveP=p;return p}
@@ -316,13 +390,17 @@ async function refreshProgress(){const t=tok();if(!t||refreshing)return;refreshi
  await Promise.all([w(),w(),w(),w(),w(),w()]);
  ls.set('prog',JSON.stringify(P));refreshing=false;S.synced=new Date();S.syncFail=fail;if(S.view==='list')render()}
 document.addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;
- if(b.dataset.open){if(S.view==='list')savedY=window.scrollY||0;set({view:'detail',sel:b.dataset.open,confirmRm:null,rmMsg:''});scrollTo(0,0);loadDetail(b.dataset.open)}
+ if(b.dataset.mode){ls.set('mode',b.dataset.mode);set({mode:b.dataset.mode});refreshMovies(false)}
+ else if(b.dataset.mopen){if(S.view==='list')savedY=window.scrollY||0;set({view:'mdetail',msel:+b.dataset.mopen,confirmRm:null,mdMsg:''});scrollTo(0,0)}
+ else if(b.dataset.act==='mwatch'){markMovie(S.msel)}
+ else if(b.dataset.act==='mremove'){removeMovie(S.msel)}
+ else if(b.dataset.open){if(S.view==='list')savedY=window.scrollY||0;set({view:'detail',sel:b.dataset.open,confirmRm:null,rmMsg:''});scrollTo(0,0);loadDetail(b.dataset.open)}
  else if(b.dataset.mark){const D=S.det[S.sel];if(D&&D.unw)markEps(S.sel,D.unw.filter(x=>String(x.id)===b.dataset.mark))}
  else if(b.dataset.act==='markall'){const D=S.det[S.sel];if(D&&D.unw)markEps(S.sel,D.unw.slice())}
- else if(b.dataset.add!=null){addShow(S.results[+b.dataset.add])}
+ else if(b.dataset.add!=null){const rr=S.results[+b.dataset.add];if(rr.kind==='movie')addMovie(rr);else addShow(rr)}
  else if(b.dataset.act==='back'){set({view:'list',sel:null});restoreY()}
- else if(b.dataset.act==='search'){savedY=window.scrollY||0;set({view:'search',results:[],msg:'Search Trakt by show title or actor name.'});scrollTo(0,0)}
- else if(b.dataset.act==='refresh'){try{Object.keys(localStorage).filter(k=>k.indexOf('det_')===0).forEach(k=>localStorage.removeItem(k))}catch(e){}refreshLive('full')}
+ else if(b.dataset.act==='search'){savedY=window.scrollY||0;set({view:'search',results:[],msg:'Search Trakt by show, movie or actor name.'});scrollTo(0,0)}
+ else if(b.dataset.act==='refresh'){refreshMovies(true);try{Object.keys(localStorage).filter(k=>k.indexOf('det_')===0).forEach(k=>localStorage.removeItem(k))}catch(e){}refreshLive('full')}
  else if(b.dataset.act==='tmdboff'){ls.del('tmdbTok');ls.del('bd');set({tmdbMsg:''})}
  else if(b.dataset.act==='retry'){loadDetail(S.sel)}
  else if(b.dataset.act==='remove'){removeShow(S.sel)}
@@ -331,7 +409,7 @@ document.addEventListener('click',e=>{const b=e.target.closest('button');if(!b)r
 document.addEventListener('submit',e=>{if(e.target.id==='tf'){e.preventDefault();const v=e.target.elements.t.value.trim();if(v){ls.set('tmdbTok',v);S.tmdbMsg='';render();loadBackdrops()}return}
  if(e.target.id!=='sf')return;e.preventDefault();const q=e.target.elements.q.value.trim();if(!q)return;set({msg:'Searching...',results:[]});runSearch(q)});
 render();
-refreshLive(false);
+refreshLive(false);refreshMovies(false);
 loadArt();loadBackdrops();
-document.addEventListener('visibilitychange',()=>{if(!document.hidden)refreshLive(false)});
+document.addEventListener('visibilitychange',()=>{if(!document.hidden){refreshLive(false);refreshMovies(false)}});
 </script></body></html>
