@@ -112,8 +112,24 @@ function allShows0(){const a=added();const eps=Object.assign({},UP);a.forEach(x=
  const nextAir=(t,fb)=>{const l=eps[t];if(!l)return fb;const f=l.find(x=>x.a&&new Date(x.a).getTime()>now);return f?f.a:(l.some(x=>!x.a)?null:fb)};
  const base=BASE.map(b=>[b[0],P[b[0]]!=null?P[b[0]]:b[1],nextAir(b[0],b[2]),b[3]]);
  const list=base.concat(a.map(x=>[x.title,P[x.title]!=null?P[x.title]:x.unw,nextAir(x.title,x.eps.length&&x.eps[0].a?x.eps[0].a:null),x.status==='ended'||x.status==='canceled'?'end':'ret']));return{list,eps,a}}
+const rhSet=()=>{try{return new Set(JSON.parse(ls.get('rhidden')||'[]'))}catch(e){return new Set()}};
+const HSEC=['dropped','progress_watched'];
+async function fetchRemoteHidden(H){const ids=new Set();let ok=false;
+ for(const sec of HSEC){for(let pg=1;pg<=5;pg++){
+   try{const r=await fx('https://api.trakt.tv/users/hidden/'+sec+'?type=show&limit=100&page='+pg,{headers:H});
+    if(!r.ok)break;ok=true;const j=await r.json();(j||[]).forEach(x=>{if(x.show&&x.show.ids)ids.add(x.show.ids.trakt)});
+    const pc=+r.headers.get('X-Pagination-Page-Count')||1;if(pg>=pc)break}catch(e){break}}}
+ if(ok)ls.set('rhidden',JSON.stringify([...ids]));return ok}
+async function hideRemote(id){const tk=tok();if(!tk||!id)return null;
+ for(const sec of HSEC){try{const r=await tpost('/users/hidden/'+sec,{shows:[{ids:{trakt:id}}]},tk);
+   if(r.status===401){ls.del('traktTok');return null}
+   if(r.status<300){const h=rhSet();h.add(id);ls.set('rhidden',JSON.stringify([...h]));return sec}}catch(e){}}
+ return null}
+async function unhideRemote(id){const tk=tok();if(!tk||!id)return;
+ for(const sec of HSEC){try{await tpost('/users/hidden/'+sec+'/remove',{shows:[{ids:{trakt:id}}]},tk)}catch(e){}}
+ const h=rhSet();h.delete(id);ls.set('rhidden',JSON.stringify([...h]))}
 const hiddenL=()=>{try{return JSON.parse(ls.get('hidden')||'[]')}catch(e){return[]}};
-function allShows(){const r=allShows0();const H=new Set(hiddenL());r.list=r.list.filter(x=>!H.has(x[0].toLowerCase()));return r}
+function allShows(){const r=allShows0();const H=new Set(hiddenL());const R=rhSet();r.list=r.list.filter(x=>!H.has(x[0].toLowerCase())&&!(x[5]&&R.has(x[5])));return r}
 function rowsHtml(list){const today=dayNum(new Date());
  const rows=list.map(s=>{const title=s[0],unw=s[1],air=s[2],st=s[3];let label=st==='end'?'ENDED':'TBA',sort=st==='end'?2e15:1e15,big=false;
   if(air){const d=new Date(air),diff=dayNum(d)-today;sort=d.getTime();label=diff<0?'AIRED':diff===0?'TODAY':diff===1?'TOMORROW':diff<=30?diff+' DAYS':md.format(d).toUpperCase();big=diff<=30}
@@ -157,7 +173,7 @@ async function addShow(r){set({adding:r.id});
  try{const data=await tj('/shows/'+r.id+'/seasons?extended=episodes,full');const now=Date.now();let unw=0;const eps=[];const top=Math.max(0,...data.filter(x=>x.number>0).map(x=>x.number));
   data.forEach(sn=>{if(sn.number===0)return;(sn.episodes||[]).forEach(e=>{const fa=e.first_aired;if(fa&&new Date(fa).getTime()<=now){unw++;return}if(!fa&&sn.number!==top)return;const ov=(e.overview||'').trim();let t=e.title||'';if(/^episode \d+$/i.test(t)||t==='TBA')t='';eps.push({s:sn.number,e:e.number,t,a:fa||null,o:ov.length>260?ov.slice(0,257).replace(/\s+\S*$/,'')+'...':ov})})});
   eps.sort((a,b)=>(a.a?0:1)-(b.a?0:1)||(a.a||'').localeCompare(b.a||'')||a.s-b.s||a.e-b.e);
-  ls.set('hidden',JSON.stringify(hiddenL().filter(x=>x!==r.title.toLowerCase())));const l=added().filter(a=>a.id!==r.id);l.push({id:r.id,title:r.title,status:r.status,unw,eps:eps.slice(0,14)});saveAdded(l);
+  ls.set('hidden',JSON.stringify(hiddenL().filter(x=>x!==r.title.toLowerCase())));await unhideRemote(r.id);const l=added().filter(a=>a.id!==r.id);l.push({id:r.id,title:r.title,status:r.status,unw,eps:eps.slice(0,14)});saveAdded(l);
   const t=tok();let wmsg='';
   if(t){try{const w=await tpost('/sync/watchlist',{shows:[{ids:{trakt:r.id}}]},t);if(w.status===401){ls.del('traktTok')}if(w.status>=300){set({adding:null,view:'search',auth:'Added here, but Trakt watchlist failed (HTTP '+w.status+(w.status===401?', please reconnect':'')+').'});return}}catch(e){set({adding:null,view:'search',auth:'Added here, but Trakt watchlist failed ('+(e.message||'error')+').'});return}}
   set({adding:null,view:'list',auth:''});scrollTo(0,0)}
@@ -212,10 +228,11 @@ async function removeShow(t){
    if(r.status===401){ls.del('traktTok')}
    if(r.status>=300){set({confirmRm:null,rmMsg:'Could not remove it on Trakt (HTTP '+r.status+(r.status===401?', please reconnect':'')+'). Nothing was changed.'});return}}
   catch(e){set({confirmRm:null,rmMsg:'Could not reach Trakt ('+(e.message||'error')+'). Nothing was changed.'});return}}
+ const sec=await hideRemote(id);
  const h=hiddenL();if(!h.includes(t.toLowerCase()))h.push(t.toLowerCase());ls.set('hidden',JSON.stringify(h));
  saveAdded(added().filter(a=>a.title!==t));
  const L=liveC();if(L&&L.shows){L.shows=L.shows.filter(x=>x.title!==t);ls.set('live',JSON.stringify(L))}
- set({view:'list',sel:null,confirmRm:null,rmMsg:''});scrollTo(0,0)}
+ set({view:'list',sel:null,confirmRm:null,rmMsg:'',liveMsg:(tk&&id&&!sec)?'Removed here, but Trakt would not mark it as dropped, so it may return on other devices.':''});scrollTo(0,0)}
 const artMap=()=>{try{return JSON.parse(ls.get('art')||'{}')}catch(e){return{}}};
 const bdMap=()=>{try{return JSON.parse(ls.get('bd')||'{}')}catch(e){return{}}};
 const tmdbTok=()=>ls.get('tmdbTok');
@@ -261,11 +278,12 @@ async function refreshLive0(force){const t=tok();if(!t){if(force){S.liveMsg='Con
   if(!wr.ok)throw new Error('watched list HTTP '+wr.status);
   const watched=await wr.json();const wl=lr.ok?await lr.json():[];const cal=cr.ok?await cr.json():null;
   const calMap={};if(cal)cal.forEach(c=>{if(c.show&&c.show.ids&&c.first_aired)(calMap[c.show.ids.trakt]=calMap[c.show.ids.trakt]||[]).push(new Date(c.first_aired).getTime())});
+  await fetchRemoteHidden(H);const RH=rhSet();
   const cand=new Map();
   watched.forEach(w=>{const sh=w.show;if(!sh||!sh.ids)return;const ended=sh.status==='ended'||sh.status==='canceled';const age=(now-new Date(w.last_watched_at).getTime())/DAY;
    if(!ended||age<=90)cand.set(sh.ids.trakt,{title:sh.title,id:sh.ids.trakt,imdb:sh.ids.imdb||'',tmdb:sh.ids.tmdb||0,status:sh.status||'',lw:w.last_watched_at||''})});
   wl.forEach(w=>{const sh=w.show;if(!sh||!sh.ids)return;const ended=sh.status==='ended'||sh.status==='canceled';if(!ended&&!cand.has(sh.ids.trakt))cand.set(sh.ids.trakt,{title:sh.title,id:sh.ids.trakt,imdb:sh.ids.imdb||'',tmdb:sh.ids.tmdb||0,status:sh.status||'',lw:''})});
-  const items=[...cand.values()];let i=0,fail=0,calls=0;const out=[];
+  const items=[...cand.values()].filter(x=>!RH.has(x.id));let i=0,fail=0,calls=0;const out=[];
   async function w(){while(i<items.length){const it=items[i++];const p=prev[it.id];await sleep(120);
    try{const cl=calMap[it.id]||[];const fut=cl.filter(x=>x>now).sort((a,b)=>a-b)[0];
     const airedSince=!!(p&&cl.some(x=>x<=now&&x>(p.t||0)));
